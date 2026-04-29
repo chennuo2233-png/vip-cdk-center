@@ -142,7 +142,7 @@ def redeem():
                             "status": row["status"],
                         }
                     elif not student_id:
-                        result = {"type": "error", "message": "请输入学号。"}
+                        result = {"type": "error", "message": "请输入token。"}
                     else:
                         cur = conn.execute(
                             """
