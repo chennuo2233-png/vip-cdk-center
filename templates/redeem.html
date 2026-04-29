@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card narrow">
   <h1>PLUS 兑换</h1>
-  <p class="muted">请输入兑换码和token令牌。提交后进入排队中，管理员完成充值后会更新状态。</p>
+  <p class="muted">请输入兑换码和token令牌。提交后进入排队中，管理员完成充值后会更新状态。（备注：实测平均等待30min左右，上午比下午等待时间要久一些，2小时为超时，充值失败一定退款）</p>
 
   {% if result %}
   <div class="alert {{ result.type }}">
