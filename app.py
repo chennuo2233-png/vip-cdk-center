@@ -166,7 +166,8 @@ def redeem():
     return render_template("redeem.html", result=result, code_row=code_row, status_text=PUBLIC_STATUS_TEXT)
 
 
-@app.route("/admin/login", methods=["GET", "POST"])
+
+@app.route("/FenYi/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
         password = request.form.get("password", "")
@@ -177,13 +178,17 @@ def admin_login():
     return render_template("admin_login.html")
 
 
-@app.route("/admin/logout")
+
+@app.route("/FenYi/logout")
+
 def admin_logout():
     session.clear()
     return redirect(url_for("admin_login"))
 
 
-@app.route("/admin")
+
+@app.route("/FenYi")
+
 @admin_required
 def admin():
     status = request.args.get("status", "").strip()
@@ -205,7 +210,8 @@ def admin():
     return render_template("admin.html", codes=codes, statuses=VALID_STATUSES, status_text=ADMIN_STATUS_TEXT)
 
 
-@app.route("/admin/update/<int:code_id>", methods=["POST"])
+
+@app.route("/FenYi/update/<int:code_id>", methods=["POST"])
 @admin_required
 def update_code(code_id: int):
     new_status = request.form.get("status", "")
@@ -225,7 +231,9 @@ def update_code(code_id: int):
     return redirect(request.referrer or url_for("admin"))
 
 
-@app.route("/admin/codes", methods=["GET", "POST"])
+
+@app.route("/FenYi/codes", methods=["GET", "POST"])
+
 @admin_required
 def generate_codes():
     generated = []
@@ -265,7 +273,9 @@ def generate_codes():
     return render_template("generate.html", generated=generated)
 
 
-@app.route("/admin/export")
+
+@app.route("/FenYi/export")
+
 @admin_required
 def export_codes():
     partner = request.args.get("partner", "").strip()
@@ -298,7 +308,9 @@ def export_codes():
     )
 
 
-@app.route("/admin/stats")
+
+@app.route("/FenYi/stats")
+
 @admin_required
 def stats():
     with get_db() as conn:

@@ -12,12 +12,10 @@
     <nav>
       <a href="{{ url_for('redeem') }}">用户兑换</a>
       {% if session.get('admin_logged_in') %}
-      <a href="{{ url_for('admin') }}">后台</a>
-      <a href="{{ url_for('generate_codes') }}">生成码</a>
-      <a href="{{ url_for('stats') }}">统计</a>
-      <a href="{{ url_for('admin_logout') }}">退出</a>
-      {% else %}
-      <a href="{{ url_for('admin_login') }}">后台登录</a>
+        <a href="{{ url_for('admin') }}">后台</a>
+        <a href="{{ url_for('generate_codes') }}">生成码</a>
+        <a href="{{ url_for('stats') }}">统计</a>
+        <a href="{{ url_for('admin_logout') }}">退出</a>
       {% endif %}
     </nav>
   </header>
