@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% set title = '后台登录' %}
+{% block content %}
+<section class="card narrow">
+  <h1>后台登录</h1>
+  <form method="post" class="form">
+    <label>后台密码</label>
+    <input type="password" name="password" required>
+    <button type="submit">登录</button>
+  </form>
+  <p class="muted">本地默认密码是 admin123，上线前必须通过环境变量 ADMIN_PASSWORD 修改。</p>
+</section>
+{% endblock %}

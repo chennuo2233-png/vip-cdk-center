@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% set title = '统计' %}
+{% block content %}
+<section class="card">
+  <h1>统计</h1>
+  <div class="stats-grid">
+    {% for s in ['created','distributed','submitted','processing','success','failed','refunded'] %}
+    <div class="stat">
+      <div class="stat-num">{{ counts.get(s, 0) }}</div>
+      <div class="stat-label">{{ status_text.get(s, s) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="money-grid">
+    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.revenue or 0) }}</div><div class="stat-label">成功收入</div></div>
+    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.cost or 0) }}</div><div class="stat-label">成功成本</div></div>
+    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.profit or 0) }}</div><div class="stat-label">成功利润</div></div>
+  </div>
+</section>
+{% endblock %}

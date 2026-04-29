@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or 'VIP 兑换中台' }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">VIP 兑换中台</div>
+    <nav>
+      <a href="{{ url_for('redeem') }}">用户兑换</a>
+      {% if session.get('admin_logged_in') %}
+      <a href="{{ url_for('admin') }}">后台</a>
+      <a href="{{ url_for('generate_codes') }}">生成码</a>
+      <a href="{{ url_for('stats') }}">统计</a>
+      <a href="{{ url_for('admin_logout') }}">退出</a>
+      {% else %}
+      <a href="{{ url_for('admin_login') }}">后台登录</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

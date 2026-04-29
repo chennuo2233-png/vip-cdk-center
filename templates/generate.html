@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% set title = '生成兑换码' %}
+{% block content %}
+<section class="card narrow">
+  <h1>生成兑换码</h1>
+  <form method="post" class="form">
+    <label>合作方</label>
+    <input name="partner" value="白先生" required>
+    <label>生成数量</label>
+    <input type="number" name="quantity" value="20" min="1" max="500" required>
+    <label>前缀</label>
+    <input name="prefix" value="CNVIP" required>
+    <label>给合作方的单价</label>
+    <input type="number" step="0.01" name="partner_price" value="32">
+    <label>预计供应成本</label>
+    <input type="number" step="0.01" name="supplier_cost" value="25">
+    <label>初始状态</label>
+    <select name="status">
+      <option value="distributed" selected>已发给合作方/可兑换</option>
+      <option value="created">刚生成/未上架</option>
+    </select>
+    <button type="submit">批量生成</button>
+  </form>
+  <p><a class="button secondary" href="{{ url_for('export_codes', status='distributed') }}">导出可兑换码 CSV</a></p>
+</section>
+
+{% if generated %}
+<section class="card">
+  <h2>本次生成结果</h2>
+  <textarea class="codes-output" readonly>{% for code in generated %}{{ code }}
+{% endfor %}</textarea>
+</section>
+{% endif %}
+{% endblock %}

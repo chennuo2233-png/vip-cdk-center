@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% set title = '管理后台' %}
+{% block content %}
+<section class="card">
+  <h1>管理后台</h1>
+  <form method="get" class="filters">
+    <select name="status">
+      <option value="">全部状态</option>
+      {% for s in ['created','distributed','submitted','processing','success','failed','refunded'] %}
+        <option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ status_text.get(s, s) }}</option>
+      {% endfor %}
+    </select>
+    <input name="q" value="{{ request.args.get('q','') }}" placeholder="搜索兑换码/学号/联系方式/合作方">
+    <button type="submit">筛选</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>兑换码</th><th>合作方</th><th>状态</th><th>学号</th><th>联系方式</th><th>收入</th><th>成本</th><th>利润</th><th>提交时间</th><th>备注/操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in codes %}
+        <tr>
+          <td>{{ c.id }}</td>
+          <td class="mono">{{ c.proxy_code }}</td>
+          <td>{{ c.partner }}</td>
+          <td><span class="badge {{ c.status }}">{{ status_text.get(c.status, c.status) }}</span></td>
+          <td>{{ c.student_id or '' }}</td>
+          <td>{{ c.contact or '' }}</td>
+          <td>{{ '%.2f'|format(c.partner_price or 0) }}</td>
+          <td>{{ '%.2f'|format(c.supplier_cost or 0) }}</td>
+          <td>{{ '%.2f'|format((c.partner_price or 0) - (c.supplier_cost or 0)) }}</td>
+          <td>{{ c.submitted_at or '' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('update_code', code_id=c.id) }}" class="mini-form">
+              <select name="status">
+                {% for s in ['created','distributed','submitted','processing','success','failed','refunded'] %}
+                  <option value="{{ s }}" {% if c.status == s %}selected{% endif %}>{{ status_text.get(s, s) }}</option>
+                {% endfor %}
+              </select>
+              <input name="remark" value="{{ c.remark or '' }}" placeholder="备注">
+              <button type="submit">保存</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" class="empty">暂无数据</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
