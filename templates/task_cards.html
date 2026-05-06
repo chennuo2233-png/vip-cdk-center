@@ -1,0 +1,97 @@
+{% if tasks %}
+<div class="task-list compact-task-list">
+  {% for t in tasks %}
+  <details class="task-card task-collapse">
+    <summary class="task-summary">
+      <div class="task-summary-main">
+        <span class="task-id">#{{ t.id }}</span>
+        <span class="mono">{{ t.proxy_code }}</span>
+        <span class="queue-age {% if t.queue_minutes and t.queue_minutes >= 30 and t.status in ['pending','assigned','processing'] %}overdue{% endif %}">
+          {% if current_user.role == 'owner' %}
+            已排队 {{ format_queue_age(t.queue_minutes, lang='zh') }}
+          {% else %}
+            Queued {{ format_queue_age(t.queue_minutes) }}
+          {% endif %}
+        </span>
+      </div>
+      <div class="task-summary-meta">
+        <span class="badge {{ t.status }}">{{ task_status_text.get(t.status, t.status) }}</span>
+        <span class="assigned-pill">{{ t.assigned_name or 'Unassigned' }}</span>
+      </div>
+    </summary>
+
+    <div class="task-grid">
+      <div>
+        <label class="mini-label">Token</label>
+        <div class="token-box">
+          <textarea readonly>{{ t.token }}</textarea>
+          <button type="button" class="secondary" onclick="copyToken(this)">Copy</button>
+        </div>
+      </div>
+      <div>
+        <label class="mini-label">Created</label>
+        <div class="field-box">{{ t.created_at }}</div>
+        <label class="mini-label">CDK Status</label>
+        <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
+        <label class="mini-label">Assigned To</label>
+        <div class="field-box">{{ t.assigned_name or 'Unassigned' }}</div>
+        {% if current_user.role == 'owner' and t.fail_reason %}
+          <label class="mini-label">Failure Reason</label>
+          <div class="field-box danger-text">{{ t.fail_reason }}</div>
+        {% endif %}
+        {% if current_user.role == 'owner' and t.worker_note %}
+          <label class="mini-label">Worker Note</label>
+          <div class="field-box">{{ t.worker_note }}</div>
+        {% endif %}
+      </div>
+      <div class="actions-col">
+        {% if current_user.role in ['owner', 'lead'] and t.status not in ['success','failed'] %}
+        <form method="post" action="{{ url_for('assign_task', task_id=t.id) }}" class="mini-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <select name="assigned_to" required>
+            <option value="">Assign to...</option>
+            {% for u in staff %}
+              <option value="{{ u.id }}" {% if t.assigned_to == u.id %}selected{% endif %}>{{ u.display_name }} · {{ u.role }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit">Assign</button>
+        </form>
+        {% endif %}
+
+        {% if t.status in ['pending','assigned'] %}
+        <form method="post" action="{{ url_for('start_task', task_id=t.id) }}" class="mini-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="secondary">Start</button>
+        </form>
+        {% endif %}
+
+        {% if t.status not in ['success','failed'] %}
+        <form method="post" action="{{ url_for('mark_task_success', task_id=t.id) }}" class="mini-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input name="worker_note" placeholder="Private note, optional">
+          <button type="submit" class="success-btn">Success</button>
+        </form>
+
+        <form method="post" action="{{ url_for('mark_task_failed', task_id=t.id) }}" class="mini-form fail-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <select name="fail_reason" required>
+            <option value="">Failure reason...</option>
+            {% for reason in fail_reasons %}
+              <option value="{{ reason }}">{{ reason }}</option>
+            {% endfor %}
+          </select>
+          <input name="other_reason" placeholder="Required if Other">
+          <input name="worker_note" placeholder="Private note, optional">
+          <button type="submit" class="danger-btn">Failed</button>
+        </form>
+        {% else %}
+          <div class="field-box muted">Completed at {{ t.completed_at or '-' }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">暂无任务 / No tasks</div>
+{% endif %}

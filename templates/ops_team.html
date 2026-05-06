@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% set title = 'Team Workload' %}
+{% block content %}
+<section class="card">
+  <div class="split-title">
+    <div>
+      <h1>Team Workload</h1>
+      <p class="muted">Use these cards to assign work by current queue size and settle daily payout by Success / Failed counts.</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('ops_tasks') }}">Back to Queue</a>
+  </div>
+
+  <div class="member-grid">
+    {% for item in workloads %}
+    {% set u = item.user %}
+    <a class="member-card" href="{{ url_for('ops_team_member', member_id=u.id) }}">
+      <div class="member-top">
+        <strong>{{ u.display_name }}</strong>
+        <span class="badge {{ 'distributed' if u.is_active else 'disabled' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span>
+      </div>
+      <div class="member-username mono">{{ u.username }} · {{ u.role }}</div>
+      <div class="member-metrics">
+        <span><b>{{ item.current_queue }}</b> Current Queue</span>
+        <span><b>{{ item.waiting_queue }}</b> Waiting</span>
+        <span><b>{{ item.processing }}</b> Processing</span>
+        <span><b>{{ item.success_today }}</b> Success Today</span>
+        <span><b>{{ item.failed_today }}</b> Failed Today</span>
+      </div>
+      <div class="member-view">View workload →</div>
+    </a>
+    {% else %}
+    <div class="empty">No staff accounts yet.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card narrow">
+  <details>
+    <summary class="section-summary">Create Staff Account</summary>
+    <form method="post" class="form section-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="create">
+      <label>Username</label>
+      <input name="username" required>
+      <label>Display Name</label>
+      <input name="display_name" required>
+      <label>Initial Password</label>
+      <input type="password" name="password" required>
+      <input type="hidden" name="role" value="staff">
+      <button type="submit">Create Staff</button>
+    </form>
+  </details>
+</section>
+
+<section class="card">
+  <h2>Staff Accounts</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.id }}</td>
+          <td class="mono">{{ u.username }}</td>
+          <td>{{ u.display_name }}</td>
+          <td>{{ u.role }}</td>
+          <td>{{ 'Active' if u.is_active else 'Disabled' }}</td>
+          <td>{{ u.last_login_at or '' }}</td>
+          <td>
+            <form method="post" class="mini-form inline-actions">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <button name="action" value="{{ 'disable' if u.is_active else 'enable' }}" type="submit">{{ 'Disable' if u.is_active else 'Enable' }}</button>
+            </form>
+            <form method="post" class="mini-form inline-actions">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <input type="password" name="new_password" placeholder="New password">
+              <button name="action" value="reset_password" type="submit">Reset Password</button>
+            </form>
+            <form method="post" class="mini-form inline-actions" onsubmit="return confirm('Delete this staff account? Active tasks will return to the queue. Historical records will be kept.');">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <button name="action" value="delete" type="submit" class="danger-btn">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">No staff accounts yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

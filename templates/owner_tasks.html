@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set title = '完成任务归档' if archive_mode else '当前任务队列' %}
+{% block content %}
+<section class="card">
+  <div class="split-title">
+    <div>
+      <h1>{{ '完成任务归档' if archive_mode else '当前任务队列' }}</h1>
+      <p class="muted">
+        {% if archive_mode %}
+          Success / Failed 任务收纳在这里，不干扰当前排队订单。
+        {% else %}
+          默认只显示 Pending / Assigned / Processing，最早提交的订单排在前面。
+        {% endif %}
+      </p>
+    </div>
+    <div class="button-row">
+      {% if archive_mode %}
+        <a class="button secondary" href="{{ url_for('owner_tasks') }}">返回当前队列</a>
+      {% else %}
+        <a class="button secondary" href="{{ url_for('owner_tasks_archive') }}">查看完成归档</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stats-grid queue-stats">
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('pending', 0) }}</div><div class="stat-label">Pending</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('assigned', 0) }}</div><div class="stat-label">Assigned</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('processing', 0) }}</div><div class="stat-label">Processing</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('success_today', 0) }}</div><div class="stat-label">今日成功</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('failed_today', 0) }}</div><div class="stat-label">今日失败</div></div>
+  </div>
+
+  <form method="get" class="filters">
+    <select name="status">
+      {% if archive_mode %}
+        <option value="">成功 + 失败</option>
+        {% for s in ['success','failed'] %}
+          <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ task_status_text.get(s, s) }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">全部未完成</option>
+        {% for s in ['pending','assigned','processing'] %}
+          <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ task_status_text.get(s, s) }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    <input name="q" value="{{ q or '' }}" placeholder="搜索 CDK / Token">
+    <button type="submit">筛选</button>
+  </form>
+</section>
+<section class="card">
+  {% include "task_cards.html" with context %}
+</section>
+{% endblock %}

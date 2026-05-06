@@ -4,6 +4,7 @@
 <section class="card narrow">
   <h1>生成兑换码</h1>
   <form method="post" class="form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <label>合作方</label>
     <input name="partner" value="白先生" required>
     <label>生成数量</label>
@@ -16,12 +17,15 @@
     <input type="number" step="0.01" name="supplier_cost" value="25">
     <label>初始状态</label>
     <select name="status">
-      <option value="distributed" selected>已发给合作方/可兑换</option>
-      <option value="created">刚生成/未上架</option>
+      <option value="distributed" selected>可兑换 / 已发给合作方</option>
+      <option value="created">刚生成 / 未上架</option>
     </select>
     <button type="submit">批量生成</button>
   </form>
-  <p><a class="button secondary" href="{{ url_for('export_codes', status='distributed') }}">导出可兑换码 CSV</a></p>
+  <p class="button-row">
+    <a class="button secondary" href="{{ url_for('export_codes', status='distributed') }}">导出可兑换码 CSV</a>
+    <a class="button secondary" href="{{ url_for('owner_codes') }}">查看卡密库</a>
+  </p>
 </section>
 
 {% if generated %}

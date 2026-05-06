@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set title = 'Completed Archive' if archive_mode else 'Task Queue' %}
+{% block content %}
+<section class="card">
+  <div class="split-title">
+    <div>
+      <h1>{{ 'Completed Archive' if archive_mode else 'Task Queue' }}</h1>
+      <p class="muted">
+        {% if archive_mode %}
+          Completed tasks are stored here so the active queue stays clean.
+        {% elif current_user.role == 'staff' %}
+          Your active tasks are sorted by submission time. Finished tasks move to Archive.
+        {% else %}
+          Active tasks only. Oldest queued orders appear first.
+        {% endif %}
+      </p>
+    </div>
+    <div class="button-row">
+      {% if archive_mode %}
+        <a class="button secondary" href="{{ url_for('ops_tasks') }}">Back to Queue</a>
+      {% else %}
+        <a class="button secondary" href="{{ url_for('ops_tasks_archive') }}">Completed Archive</a>
+      {% endif %}
+      {% if current_user.role == 'lead' %}
+        <a class="button secondary" href="{{ url_for('ops_team') }}">Team Workload</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stats-grid queue-stats">
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('pending', 0) }}</div><div class="stat-label">Waiting</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('assigned', 0) }}</div><div class="stat-label">Assigned</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('processing', 0) }}</div><div class="stat-label">Processing</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('success_today', 0) }}</div><div class="stat-label">Success Today</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('failed_today', 0) }}</div><div class="stat-label">Failed Today</div></div>
+  </div>
+
+  <form method="get" class="filters">
+    <select name="status">
+      {% if archive_mode %}
+        <option value="">Success + Failed</option>
+        {% for s in ['success','failed'] %}
+          <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ task_status_text.get(s, s) }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">All active tasks</option>
+        {% for s in ['pending','assigned','processing'] %}
+          <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ task_status_text.get(s, s) }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    {% if current_user.role in ['owner', 'lead'] %}
+      <input name="q" value="{{ q or '' }}" placeholder="Search CDK / Token">
+    {% endif %}
+    <button type="submit">Filter</button>
+  </form>
+</section>
+<section class="card">
+  {% include "task_cards.html" with context %}
+</section>
+{% endblock %}

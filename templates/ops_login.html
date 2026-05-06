@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set title = 'Ops Login' %}
+{% block content %}
+<section class="card narrow">
+  <h1>Ops Login</h1>
+  <p class="muted">For team leads and staff only.</p>
+  <form method="post" class="form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label>Username</label>
+    <input name="username" required autocomplete="username">
+    <label>Password</label>
+    <input type="password" name="password" required autocomplete="current-password">
+    <button type="submit">Login</button>
+  </form>
+</section>
+{% endblock %}

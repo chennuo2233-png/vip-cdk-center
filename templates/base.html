@@ -3,19 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or 'VIP 兑换中台' }}</title>
+  <title>{{ title or 'VIP CDK Center' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">PLUS-CDK 兑换中台</div>
+    <div class="brand">Redeem Plus CDK</div>
     <nav>
       <a href="{{ url_for('redeem') }}">用户兑换</a>
-      {% if session.get('admin_logged_in') %}
-        <a href="{{ url_for('admin') }}">后台</a>
-        <a href="{{ url_for('generate_codes') }}">生成码</a>
-        <a href="{{ url_for('stats') }}">统计</a>
-        <a href="{{ url_for('admin_logout') }}">退出</a>
+      {% if current_user %}
+        {% if current_user.role == 'owner' %}
+          <a href="{{ url_for('owner_dashboard') }}">老板后台</a>
+          <a href="{{ url_for('owner_tasks') }}">任务列表</a>
+          <a href="{{ url_for('generate_codes') }}">生成码</a>
+          <a href="{{ url_for('owner_codes') }}">卡密库</a>
+          <a href="{{ url_for('owner_team') }}">团队</a>
+          <a href="{{ url_for('stats') }}">统计</a>
+          <a href="{{ url_for('owner_logs') }}">日志</a>
+          <a href="{{ url_for('owner_logout') }}">退出</a>
+        {% elif current_user.role in ['lead', 'staff'] %}
+          <a href="{{ url_for('ops_tasks') }}">Tasks</a>
+          {% if current_user.role == 'lead' %}
+            <a href="{{ url_for('ops_team') }}">Team</a>
+          {% endif %}
+          <a href="{{ url_for('ops_logout') }}">Logout</a>
+        {% endif %}
       {% endif %}
     </nav>
   </header>
@@ -29,5 +41,6 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

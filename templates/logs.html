@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% set title = '操作日志' %}
+{% block content %}
+<section class="card">
+  <h1>操作日志</h1>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>时间</th><th>操作者</th><th>角色</th><th>动作</th><th>任务</th><th>卡密</th><th>旧值</th><th>新值</th><th>备注</th><th>IP</th></tr></thead>
+      <tbody>
+        {% for l in logs %}
+        <tr>
+          <td>{{ l.id }}</td>
+          <td>{{ l.created_at }}</td>
+          <td>{{ l.display_name or l.username or '-' }}</td>
+          <td>{{ l.actor_role or '-' }}</td>
+          <td>{{ l.action }}</td>
+          <td>{{ l.task_id or '' }}</td>
+          <td>{{ l.code_id or '' }}</td>
+          <td>{{ l.old_value or '' }}</td>
+          <td>{{ l.new_value or '' }}</td>
+          <td>{{ l.note or '' }}</td>
+          <td>{{ l.ip_address or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" class="empty">暂无日志</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

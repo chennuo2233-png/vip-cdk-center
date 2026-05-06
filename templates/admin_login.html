@@ -1,13 +1,16 @@
 {% extends "base.html" %}
-{% set title = '后台登录' %}
+{% set title = '老板后台登录' %}
 {% block content %}
 <section class="card narrow">
-  <h1>后台登录</h1>
+  <h1>老板后台登录</h1>
   <form method="post" class="form">
-    <label>后台密码</label>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label>用户名</label>
+    <input name="username" value="{{ default_username or 'owner' }}" required>
+    <label>密码</label>
     <input type="password" name="password" required>
     <button type="submit">登录</button>
   </form>
-  <p class="muted">本地默认密码是 admin123，上线前必须通过环境变量 ADMIN_PASSWORD 修改。</p>
+  <p class="muted">首次运行默认账号为 owner，默认密码读取 OWNER_PASSWORD；如果未设置，则兼容 ADMIN_PASSWORD / admin123。上线前必须修改。</p>
 </section>
 {% endblock %}

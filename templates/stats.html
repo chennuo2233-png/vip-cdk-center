@@ -3,18 +3,31 @@
 {% block content %}
 <section class="card">
   <h1>统计</h1>
+  <h2>卡密状态</h2>
   <div class="stats-grid">
-    {% for s in ['created','distributed','submitted','processing','success','failed','refunded'] %}
+    {% for s in ['created','distributed','redeemed','disabled'] %}
     <div class="stat">
-      <div class="stat-num">{{ counts.get(s, 0) }}</div>
-      <div class="stat-label">{{ status_text.get(s, s) }}</div>
+      <div class="stat-num">{{ code_counts.get(s, 0) }}</div>
+      <div class="stat-label">{{ code_status_text.get(s, s) }}</div>
     </div>
     {% endfor %}
   </div>
+
+  <h2>任务状态</h2>
+  <div class="stats-grid">
+    {% for s in ['pending','assigned','processing','success','failed'] %}
+    <div class="stat">
+      <div class="stat-num">{{ task_counts.get(s, 0) }}</div>
+      <div class="stat-label">{{ task_status_text.get(s, s) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2>财务统计</h2>
   <div class="money-grid">
-    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.revenue or 0) }}</div><div class="stat-label">成功收入</div></div>
-    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.cost or 0) }}</div><div class="stat-label">成功成本</div></div>
-    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.profit or 0) }}</div><div class="stat-label">成功利润</div></div>
+    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.revenue or 0) }}</div><div class="stat-label">已核销收入</div></div>
+    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.cost or 0) }}</div><div class="stat-label">已核销成本</div></div>
+    <div class="stat"><div class="stat-num">{{ '%.2f'|format(totals.profit or 0) }}</div><div class="stat-label">已核销利润</div></div>
   </div>
 </section>
 {% endblock %}

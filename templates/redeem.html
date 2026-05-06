@@ -1,37 +1,100 @@
 {% extends "base.html" %}
 {% set title = '用户兑换' %}
 {% block content %}
-<section class="card narrow">
+<section class="card narrow redeem-card">
   <h1>PLUS 兑换</h1>
-  <p class="muted">请输入兑换码和token令牌。提交后进入排队中，管理员完成充值后会更新状态。（备注：实测平均等待30min左右，上午比下午等待时间要久一些，2小时为超时，充值失败一定退款）</p>
+  <p class="muted">按下面 3 个步骤提交。提交后进入排队中，充值到账通常需要 3-5 分钟，请耐心等待。</p>
+
+  <div class="steps-flow" aria-label="兑换流程">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div>
+        <h2>输入 CDK</h2>
+        <p>输入你收到的 CDK（兑换码）。</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div>
+        <h2>获取 Token</h2>
+        <p>先去网页 1 登录，再去网页 2 复制完整内容。</p>
+        <div class="step-buttons">
+          <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
+          <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
+        </div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div>
+        <h2>提交开通</h2>
+        <p>把完整内容粘贴到 Token 框，点击“提交开通”确认并完成。</p>
+      </div>
+    </div>
+  </div>
 
   {% if result %}
-  <div class="alert {{ result.type }}">
-    {{ result.message }}
-  </div>
+  <div class="alert {{ result.type }}">{{ result.message }}</div>
   {% endif %}
 
-  <form method="post" class="form">
+  <form method="post" class="form redeem-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="redeem">
-    <label>兑换码</label>
+    <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
-    <label>Token令牌获取地址【https://chatgpt.com/api/auth/session】</label>
-    <input name="student_id" placeholder="请完整粘贴,账号当前必须是没有其他订阅！">
+    <label>Token 令牌</label>
+    <textarea name="token" rows="6" placeholder="请完整粘贴从网页 2 复制的全部内容。" required></textarea>
     <button type="submit">提交开通</button>
   </form>
 
   <hr>
   <h2>订单状态查询</h2>
-  <form method="post" class="form inline-form">
+  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个。</p>
+  <form method="post" class="form batch-check-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check">
-    <input name="proxy_code" placeholder="输入兑换码查询状态" required>
-    <button type="submit">查询</button>
+    <textarea name="proxy_codes" rows="5" placeholder="例如：
+CNVIP-K8Q4-M2PX, CNVIP-ABCD-1234
+CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
+    <button type="submit">批量查询</button>
   </form>
+
+  {% if status_results %}
+  <div class="batch-status-results">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>CDK</th>
+            <th>卡密状态</th>
+            <th>最近订单</th>
+            <th>用户提示</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in status_results %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td class="mono">{{ item.proxy_code }}</td>
+            <td>{{ code_status_text.get(item.code_status, item.code_status) }}</td>
+            <td>{{ task_status_text.get(item.task_status, item.task_status) if item.task_status else '-' }}</td>
+            <td><span class="batch-message {{ item.type }}">{{ item.message }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   {% if code_row %}
   <div class="status-box">
-    <div>兑换码：<strong>{{ code_row.proxy_code }}</strong></div>
-    <div>当前状态：<strong>{{ status_text.get(code_row.status, code_row.status) }}</strong></div>
+    <div>CDK：<strong>{{ code_row.proxy_code }}</strong></div>
+    <div>卡密状态：<strong>{{ code_status_text.get(code_row.status, code_row.status) }}</strong></div>
+    {% if latest_task %}
+      <div>最近订单：<strong>{{ status_text.get(latest_task.status, latest_task.status) }}</strong></div>
+    {% endif %}
   </div>
   {% endif %}
 </section>

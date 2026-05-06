@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% set title = '团队管理' %}
+{% block content %}
+<section class="card narrow">
+  <h1>团队管理</h1>
+  <p class="muted">老板可以创建组长和组员。组长只能在英文工作台创建和管理组员。</p>
+  <form method="post" class="form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="create">
+    <label>用户名</label>
+    <input name="username" required>
+    <label>显示名称</label>
+    <input name="display_name" required>
+    <label>初始密码</label>
+    <input type="password" name="password" required>
+    <label>角色</label>
+    <select name="role">
+      <option value="lead">组长 lead</option>
+      <option value="staff">组员 staff</option>
+    </select>
+    <button type="submit">创建账号</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>账号列表</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>用户名</th><th>名称</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.id }}</td>
+          <td class="mono">{{ u.username }}</td>
+          <td>{{ u.display_name }}</td>
+          <td>{{ u.role }}</td>
+          <td>{{ '启用' if u.is_active else '禁用' }}</td>
+          <td>{{ u.last_login_at or '' }}</td>
+          <td>
+            {% if u.role != 'owner' %}
+            <form method="post" class="mini-form inline-actions">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <button name="action" value="{{ 'disable' if u.is_active else 'enable' }}" type="submit">{{ '禁用' if u.is_active else '启用' }}</button>
+            </form>
+            <form method="post" class="mini-form inline-actions">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <input type="password" name="new_password" placeholder="新密码">
+              <button name="action" value="reset_password" type="submit">重置密码</button>
+            </form>
+            <form method="post" class="mini-form inline-actions" onsubmit="return confirm('确定删除这个员工账号吗？未完成任务会回到待分配队列，历史记录会保留。');">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <button name="action" value="delete" type="submit" class="danger-btn">删除</button>
+            </form>
+            {% else %}
+              <span class="muted">老板账号</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
