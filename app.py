@@ -33,11 +33,11 @@ USER_ROLES = {"owner", "lead", "staff"}
 PUBLIC_STATUS_TEXT = {
     "created": "兑换码尚未上架。",
     "distributed": "待提交。",
-    "pending": "排队中。",
-    "assigned": "排队中。",
-    "processing": "排队中。",
+    "pending": "排队中，请等待10分钟。",
+    "assigned": "排队中，请等待5分钟。",
+    "processing": "排队中，请等待3分钟。。",
     "success": "充值成功。",
-    "failed": "请检查Token后重新提交。",
+    "failed": "请换一个账号重新提交Token。",
     "redeemed": "充值成功，兑换码已核销。",
     "disabled": "兑换码不可用，请联系购买渠道管理员。",
 }
