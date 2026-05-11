@@ -125,6 +125,8 @@ def create_tables(conn: sqlite3.Connection) -> None:
             token TEXT NOT NULL,
             contact TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
+            claimed_by INTEGER,
+            claimed_at TEXT,
             assigned_to INTEGER,
             assigned_by INTEGER,
             assigned_at TEXT,
@@ -135,6 +137,7 @@ def create_tables(conn: sqlite3.Connection) -> None:
             worker_note TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(code_id) REFERENCES codes(id),
+            FOREIGN KEY(claimed_by) REFERENCES users(id),
             FOREIGN KEY(assigned_to) REFERENCES users(id),
             FOREIGN KEY(assigned_by) REFERENCES users(id),
             FOREIGN KEY(completed_by) REFERENCES users(id)
@@ -186,11 +189,23 @@ def create_tables(conn: sqlite3.Connection) -> None:
     add_column_if_missing(conn, "codes", "remark", "TEXT")
     add_column_if_missing(conn, "users", "is_deleted", "INTEGER NOT NULL DEFAULT 0")
     add_column_if_missing(conn, "users", "deleted_at", "TEXT")
+    add_column_if_missing(conn, "redemption_tasks", "claimed_by", "INTEGER")
+    add_column_if_missing(conn, "redemption_tasks", "claimed_at", "TEXT")
 
     conn.execute("CREATE INDEX IF NOT EXISTS idx_codes_status ON codes(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_code_id ON redemption_tasks(code_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON redemption_tasks(status, created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON redemption_tasks(assigned_to)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_claimed_by ON redemption_tasks(claimed_by)")
+
+    # V2.5: preserve ownership for previously assigned active tasks when possible.
+    conn.execute("""
+        UPDATE redemption_tasks
+        SET claimed_by = assigned_by, claimed_at = COALESCE(claimed_at, assigned_at, created_at)
+        WHERE claimed_by IS NULL
+          AND assigned_by IN (SELECT id FROM users WHERE role = 'lead')
+          AND status IN ('pending', 'assigned', 'processing')
+    """)
 
 
 def create_initial_owner(conn: sqlite3.Connection) -> None:
@@ -554,12 +569,15 @@ def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> 
         SELECT
             t.*,
             c.status AS code_status,
+            claimed.display_name AS claimed_name,
+            claimed.username AS claimed_username,
             assigned.display_name AS assigned_name,
             assigned.username AS assigned_username,
             completed.display_name AS completed_name,
             MAX(0, CAST((julianday('now') - julianday(t.created_at)) * 24 * 60 AS INTEGER)) AS queue_minutes
         FROM redemption_tasks t
         JOIN codes c ON c.id = t.code_id
+        LEFT JOIN users claimed ON claimed.id = t.claimed_by
         LEFT JOIN users assigned ON assigned.id = t.assigned_to
         LEFT JOIN users completed ON completed.id = t.completed_by
     """
@@ -567,13 +585,14 @@ def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> 
         sql += " WHERE " + where_sql
     sql += """
         ORDER BY
-            CASE t.status
-                WHEN 'pending' THEN 0
-                WHEN 'assigned' THEN 1
-                WHEN 'processing' THEN 2
-                WHEN 'failed' THEN 3
-                WHEN 'success' THEN 4
-                ELSE 5
+            CASE
+                WHEN t.status = 'pending' AND t.claimed_by IS NULL THEN 0
+                WHEN t.status = 'pending' AND t.claimed_by IS NOT NULL THEN 1
+                WHEN t.status = 'assigned' THEN 2
+                WHEN t.status = 'processing' THEN 3
+                WHEN t.status = 'failed' THEN 4
+                WHEN t.status = 'success' THEN 5
+                ELSE 6
             END,
             CASE WHEN t.status IN ('pending', 'assigned', 'processing') THEN t.created_at END ASC,
             CASE WHEN t.status IN ('success', 'failed') THEN t.completed_at END DESC,
@@ -585,15 +604,8 @@ def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> 
 
 
 def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str, int]:
-    params: list = []
-    active_where = "status IN ('pending', 'assigned', 'processing')"
-    today_done_where = "DATE(completed_at) = DATE('now')"
-    if user["role"] == "staff":
-        active_where += " AND assigned_to = ?"
-        today_done_where += " AND completed_by = ?"
-        params.append(user["id"])
-
     counts = {
+        "hall": 0,
         "pending": 0,
         "assigned": 0,
         "processing": 0,
@@ -602,20 +614,42 @@ def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str
         "failed_today": 0,
         "completed_today": 0,
     }
+
+    if user["role"] == "staff":
+        active_where = "status IN ('pending', 'assigned', 'processing') AND assigned_to = ?"
+        active_params = [user["id"]]
+        done_where = "status IN ('success', 'failed') AND DATE(completed_at) = DATE('now') AND completed_by = ?"
+        done_params = [user["id"]]
+    elif user["role"] == "lead":
+        counts["hall"] = conn.execute(
+            "SELECT COUNT(*) AS count FROM redemption_tasks WHERE status = 'pending' AND claimed_by IS NULL"
+        ).fetchone()["count"]
+        active_where = "status IN ('pending', 'assigned', 'processing') AND claimed_by = ?"
+        active_params = [user["id"]]
+        done_where = "status IN ('success', 'failed') AND DATE(completed_at) = DATE('now') AND claimed_by = ?"
+        done_params = [user["id"]]
+    else:
+        counts["hall"] = conn.execute(
+            "SELECT COUNT(*) AS count FROM redemption_tasks WHERE status = 'pending' AND claimed_by IS NULL"
+        ).fetchone()["count"]
+        active_where = "status IN ('pending', 'assigned', 'processing')"
+        active_params = []
+        done_where = "status IN ('success', 'failed') AND DATE(completed_at) = DATE('now')"
+        done_params = []
+
     active_rows = conn.execute(
         f"SELECT status, COUNT(*) AS count FROM redemption_tasks WHERE {active_where} GROUP BY status",
-        params,
+        active_params,
     ).fetchall()
     for row in active_rows:
         counts[row["status"]] = row["count"]
         counts["active"] += row["count"]
 
-    done_params = params[:]
     done_rows = conn.execute(
         f"""
         SELECT status, COUNT(*) AS count
         FROM redemption_tasks
-        WHERE status IN ('success', 'failed') AND {today_done_where}
+        WHERE {done_where}
         GROUP BY status
         """,
         done_params,
@@ -630,7 +664,14 @@ def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str
 def staff_workload_rows(conn: sqlite3.Connection, viewer: sqlite3.Row) -> list[dict]:
     if viewer["role"] == "lead":
         users = conn.execute(
-            "SELECT * FROM users WHERE role = 'staff' AND COALESCE(is_deleted, 0) = 0 ORDER BY is_active DESC, display_name COLLATE NOCASE"
+            """
+            SELECT * FROM users
+            WHERE role = 'staff'
+              AND created_by = ?
+              AND COALESCE(is_deleted, 0) = 0
+            ORDER BY is_active DESC, display_name COLLATE NOCASE
+            """,
+            (viewer["id"],),
         ).fetchall()
     else:
         users = conn.execute(
@@ -710,6 +751,28 @@ def member_workload_counts(conn: sqlite3.Connection, member_id: int) -> dict[str
     return counts
 
 
+def assignable_users(conn: sqlite3.Connection, viewer: sqlite3.Row) -> list[sqlite3.Row]:
+    if viewer["role"] == "lead":
+        return conn.execute(
+            """
+            SELECT * FROM users
+            WHERE is_active = 1
+              AND COALESCE(is_deleted, 0) = 0
+              AND role = 'staff'
+              AND created_by = ?
+            ORDER BY display_name COLLATE NOCASE
+            """,
+            (viewer["id"],),
+        ).fetchall()
+    return conn.execute(
+        """
+        SELECT * FROM users
+        WHERE is_active = 1 AND COALESCE(is_deleted, 0) = 0 AND role IN ('lead', 'staff')
+        ORDER BY role, display_name COLLATE NOCASE
+        """
+    ).fetchall()
+
+
 def active_staff_users(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute(
         """
@@ -721,8 +784,10 @@ def active_staff_users(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def can_operate_task(user: sqlite3.Row, task: sqlite3.Row) -> bool:
-    if user["role"] in {"owner", "lead"}:
+    if user["role"] == "owner":
         return True
+    if user["role"] == "lead":
+        return task["claimed_by"] == user["id"] or task["assigned_to"] == user["id"]
     return task["assigned_to"] == user["id"]
 
 
@@ -1107,28 +1172,50 @@ def ops_tasks():
     user = current_user()
     status = request.args.get("status", "").strip()
     q = request.args.get("q", "").strip()
-    where = []
-    params = []
 
     if user["role"] == "staff":
-        where.append("t.assigned_to = ?")
-        params.append(user["id"])
-    if status in {"pending", "assigned", "processing"}:
-        where.append("t.status = ?")
-        params.append(status)
+        where = ["t.assigned_to = ?"]
+        params = [user["id"]]
+        if status in {"pending", "assigned", "processing"}:
+            where.append("t.status = ?")
+            params.append(status)
+        else:
+            where.append("t.status IN ('pending', 'assigned', 'processing')")
+        tasks = task_query(" AND ".join(where), params, limit=500)
+        hall_tasks = []
+        claimed_tasks = tasks
     else:
-        where.append("t.status IN ('pending', 'assigned', 'processing')")
-    if q and user["role"] in {"owner", "lead"}:
-        where.append("(t.proxy_code LIKE ? OR t.token LIKE ? OR t.contact LIKE ?)")
-        params.extend([f"%{q}%"] * 3)
+        hall_where = ["t.status = 'pending'", "t.claimed_by IS NULL"]
+        hall_params = []
+        if q:
+            hall_where.append("(t.proxy_code LIKE ? OR t.contact LIKE ?)")
+            hall_params.extend([f"%{q}%", f"%{q}%"])
+        hall_tasks = task_query(" AND ".join(hall_where), hall_params, limit=500)
 
-    tasks = task_query(" AND ".join(where), params, limit=500)
+        claimed_where = ["t.status IN ('pending', 'assigned', 'processing')"]
+        claimed_params = []
+        if user["role"] == "lead":
+            claimed_where.append("t.claimed_by = ?")
+            claimed_params.append(user["id"])
+        else:
+            claimed_where.append("(t.claimed_by IS NOT NULL OR t.assigned_to IS NOT NULL)")
+        if status in {"pending", "assigned", "processing"}:
+            claimed_where.append("t.status = ?")
+            claimed_params.append(status)
+        if q:
+            claimed_where.append("(t.proxy_code LIKE ? OR t.token LIKE ? OR t.contact LIKE ?)")
+            claimed_params.extend([f"%{q}%"] * 3)
+        claimed_tasks = task_query(" AND ".join(claimed_where), claimed_params, limit=500)
+        tasks = claimed_tasks
+
     with get_db() as conn:
-        staff = active_staff_users(conn) if user["role"] in {"owner", "lead"} else []
+        staff = assignable_users(conn, user) if user["role"] in {"owner", "lead"} else []
         queue_counts = visible_task_counts(conn, user)
     return render_template(
         "ops_tasks.html",
         tasks=tasks,
+        hall_tasks=hall_tasks,
+        claimed_tasks=claimed_tasks,
         staff=staff,
         selected_status=status,
         q=q,
@@ -1149,6 +1236,9 @@ def ops_tasks_archive():
     if user["role"] == "staff":
         where.append("t.completed_by = ?")
         params.append(user["id"])
+    elif user["role"] == "lead":
+        where.append("t.claimed_by = ?")
+        params.append(user["id"])
     if status in {"success", "failed"}:
         where.append("t.status = ?")
         params.append(status)
@@ -1160,11 +1250,13 @@ def ops_tasks_archive():
 
     tasks = task_query(" AND ".join(where), params, limit=500)
     with get_db() as conn:
-        staff = active_staff_users(conn) if user["role"] in {"owner", "lead"} else []
+        staff = assignable_users(conn, user) if user["role"] in {"owner", "lead"} else []
         queue_counts = visible_task_counts(conn, user)
     return render_template(
         "ops_tasks.html",
         tasks=tasks,
+        hall_tasks=[],
+        claimed_tasks=tasks,
         staff=staff,
         selected_status=status,
         q=q,
@@ -1186,7 +1278,8 @@ def ops_team_member(member_id: int):
     with get_db() as conn:
         if viewer["role"] == "lead":
             member = conn.execute(
-                "SELECT * FROM users WHERE id = ? AND role = 'staff' AND COALESCE(is_deleted, 0) = 0", (member_id,)
+                "SELECT * FROM users WHERE id = ? AND role = 'staff' AND created_by = ? AND COALESCE(is_deleted, 0) = 0",
+                (member_id, viewer["id"]),
             ).fetchone()
         else:
             member = conn.execute(
@@ -1195,7 +1288,7 @@ def ops_team_member(member_id: int):
         if not member:
             abort(404)
         counts = member_workload_counts(conn, member_id)
-        staff = active_staff_users(conn)
+        staff = assignable_users(conn, viewer)
 
     current_tasks = task_query(
         "t.assigned_to = ? AND t.status IN ('pending', 'assigned', 'processing')",
@@ -1261,7 +1354,11 @@ def manage_team(owner_view: bool):
             elif action in {"disable", "enable"}:
                 target_id = int(request.form.get("user_id", "0"))
                 target = conn.execute("SELECT * FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (target_id,)).fetchone()
-                if not target or target["role"] == "owner" or (user["role"] == "lead" and target["role"] != "staff"):
+                if (
+                    not target
+                    or target["role"] == "owner"
+                    or (user["role"] == "lead" and (target["role"] != "staff" or target["created_by"] != user["id"]))
+                ):
                     abort(403)
                 new_active = 0 if action == "disable" else 1
                 conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_active, target_id))
@@ -1272,7 +1369,11 @@ def manage_team(owner_view: bool):
             elif action == "delete":
                 target_id = int(request.form.get("user_id", "0"))
                 target = conn.execute("SELECT * FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (target_id,)).fetchone()
-                if not target or target["role"] == "owner" or (user["role"] == "lead" and target["role"] != "staff"):
+                if (
+                    not target
+                    or target["role"] == "owner"
+                    or (user["role"] == "lead" and (target["role"] != "staff" or target["created_by"] != user["id"]))
+                ):
                     abort(403)
 
                 # Soft-delete the account so historical tasks/logs keep a valid user reference.
@@ -1310,7 +1411,11 @@ def manage_team(owner_view: bool):
                 target_id = int(request.form.get("user_id", "0"))
                 new_password = request.form.get("new_password", "")
                 target = conn.execute("SELECT * FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (target_id,)).fetchone()
-                if not target or target["role"] == "owner" or (user["role"] == "lead" and target["role"] != "staff"):
+                if (
+                    not target
+                    or target["role"] == "owner"
+                    or (user["role"] == "lead" and (target["role"] != "staff" or target["created_by"] != user["id"]))
+                ):
                     abort(403)
                 if len(new_password) < 6:
                     flash("Password must be at least 6 characters." if not owner_view else "密码至少 6 位。", "error")
@@ -1327,11 +1432,88 @@ def manage_team(owner_view: bool):
         if user["role"] == "owner":
             users = conn.execute("SELECT * FROM users WHERE COALESCE(is_deleted, 0) = 0 ORDER BY role, is_active DESC, id DESC").fetchall()
         else:
-            users = conn.execute("SELECT * FROM users WHERE role = 'staff' AND COALESCE(is_deleted, 0) = 0 ORDER BY is_active DESC, id DESC").fetchall()
+            users = conn.execute(
+                "SELECT * FROM users WHERE role = 'staff' AND created_by = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY is_active DESC, id DESC",
+                (user["id"],),
+            ).fetchall()
         workloads = staff_workload_rows(conn, user) if not owner_view else []
 
     template = "team.html" if owner_view else "ops_team.html"
     return render_template(template, users=users, workloads=workloads)
+
+
+@app.route("/ops/tasks/<int:task_id>/claim", methods=["POST"])
+@lead_or_owner_required
+def claim_task(task_id: int):
+    user = current_user()
+    with get_db() as conn:
+        task = conn.execute("SELECT * FROM redemption_tasks WHERE id = ?", (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        if task["status"] != "pending":
+            flash("Only pending tasks can be claimed.", "error")
+            return redirect(request.referrer or url_for("ops_tasks"))
+
+        updated = conn.execute(
+            """
+            UPDATE redemption_tasks
+            SET claimed_by = ?, claimed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+              AND status = 'pending'
+              AND claimed_by IS NULL
+              AND assigned_to IS NULL
+            """,
+            (user["id"], task_id),
+        ).rowcount
+        if updated != 1:
+            conn.rollback()
+            flash("This task has already been claimed.", "error")
+            return redirect(request.referrer or url_for("ops_tasks"))
+        write_log(
+            conn,
+            "claim_task",
+            task_id=task_id,
+            code_id=task["code_id"],
+            old_value="hall",
+            new_value=f"claimed_by:{user['id']}",
+        )
+        conn.commit()
+    flash("Task claimed.", "success")
+    return redirect(url_for("ops_tasks"))
+
+
+@app.route("/ops/tasks/<int:task_id>/release", methods=["POST"])
+@owner_required
+def release_task(task_id: int):
+    with get_db() as conn:
+        task = conn.execute("SELECT * FROM redemption_tasks WHERE id = ?", (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        if task["status"] in {"success", "failed"}:
+            flash("Completed tasks cannot be released.", "error")
+            return redirect(request.referrer or url_for("owner_tasks"))
+        old = f"{task['status']}:claimed_by={task['claimed_by'] or ''}:assigned_to={task['assigned_to'] or ''}"
+        conn.execute(
+            """
+            UPDATE redemption_tasks
+            SET status = 'pending', claimed_by = NULL, claimed_at = NULL,
+                assigned_to = NULL, assigned_by = NULL, assigned_at = NULL, started_at = NULL
+            WHERE id = ? AND status IN ('pending', 'assigned', 'processing')
+            """,
+            (task_id,),
+        )
+        write_log(
+            conn,
+            "release_task",
+            task_id=task_id,
+            code_id=task["code_id"],
+            old_value=old,
+            new_value="hall",
+            note="Released back to Task Hall",
+        )
+        conn.commit()
+    flash("Task released back to Task Hall.", "success")
+    return redirect(request.referrer or url_for("owner_tasks"))
 
 
 @app.route("/ops/tasks/<int:task_id>/assign", methods=["POST"])
@@ -1341,23 +1523,51 @@ def assign_task(task_id: int):
     user = current_user()
     with get_db() as conn:
         task = conn.execute("SELECT * FROM redemption_tasks WHERE id = ?", (task_id,)).fetchone()
-        assignee = conn.execute(
-            "SELECT * FROM users WHERE id = ? AND is_active = 1 AND COALESCE(is_deleted, 0) = 0 AND role IN ('lead', 'staff')",
-            (assignee_id,),
-        ).fetchone()
-        if not task or not assignee:
+        if not task:
             abort(404)
         if task["status"] in {"success", "failed"}:
             flash("Completed tasks cannot be reassigned.", "error")
             return redirect(request.referrer or url_for("ops_tasks"))
-        old = f"{task['status']}:{task['assigned_to'] or ''}"
+        if user["role"] == "lead" and task["claimed_by"] != user["id"]:
+            flash("Claim this task before assigning it.", "error")
+            return redirect(request.referrer or url_for("ops_tasks"))
+
+        if user["role"] == "lead":
+            assignee = conn.execute(
+                """
+                SELECT * FROM users
+                WHERE id = ?
+                  AND is_active = 1
+                  AND COALESCE(is_deleted, 0) = 0
+                  AND role = 'staff'
+                  AND created_by = ?
+                """,
+                (assignee_id, user["id"]),
+            ).fetchone()
+        else:
+            assignee = conn.execute(
+                "SELECT * FROM users WHERE id = ? AND is_active = 1 AND COALESCE(is_deleted, 0) = 0 AND role IN ('lead', 'staff')",
+                (assignee_id,),
+            ).fetchone()
+        if not assignee:
+            abort(404)
+
+        old = f"{task['status']}:{task['assigned_to'] or ''}:claimed_by={task['claimed_by'] or ''}"
+        claimed_by = task["claimed_by"]
+        if user["role"] == "lead":
+            claimed_by = user["id"]
+        elif assignee["role"] == "lead":
+            claimed_by = assignee["id"]
+
         conn.execute(
             """
             UPDATE redemption_tasks
-            SET status = 'assigned', assigned_to = ?, assigned_by = ?, assigned_at = CURRENT_TIMESTAMP
+            SET status = 'assigned', claimed_by = COALESCE(?, claimed_by),
+                claimed_at = COALESCE(claimed_at, CURRENT_TIMESTAMP),
+                assigned_to = ?, assigned_by = ?, assigned_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (assignee_id, user["id"], task_id),
+            (claimed_by, assignee_id, user["id"], task_id),
         )
         write_log(
             conn,
@@ -1365,7 +1575,7 @@ def assign_task(task_id: int):
             task_id=task_id,
             code_id=task["code_id"],
             old_value=old,
-            new_value=f"assigned:{assignee_id}",
+            new_value=f"assigned:{assignee_id}:claimed_by={claimed_by or ''}",
         )
         conn.commit()
     flash("Task assigned.", "success")

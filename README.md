@@ -219,3 +219,26 @@ copy E:\vip-cdk-center\vip-cdk-center\cdk_center.db E:\vip-cdk-center\vip-cdk-ce
 - 老板在 `/FenYi/team` 里也可以删除 lead / staff 账号。
 - 删除采用安全删除：账号会从界面消失、无法再登录、无法再被分配任务，但历史任务和操作日志会保留，方便日后核对结算。
 - 如果被删除账号还有 `pending / assigned / processing` 未完成任务，这些任务会自动回到未分配队列，避免任务卡死在已删除员工名下。
+
+## V2.5 Task Hall 抢单工作流
+
+这版增加了多个组长同时在线时的“大厅接单”机制：
+
+- 用户提交 CDK + Token 后，任务先进入 `Task Hall`。
+- `Task Hall` 只显示 `pending` 且未被任何组长接走的任务。
+- 组长必须点击 **Claim** 后，任务才归属该组长。
+- 大厅里的任务不会显示 Token，也不会显示 Start / Success / Failed / Assign 操作，避免所有组长无成本浏览和误处理。
+- 被 Claim 的任务会进入该组长的 `My Claimed Tasks`。
+- 组长只能处理自己 Claim 的任务，或分配给自己创建的组员。
+- 组员仍然只能看到分配给自己的任务。
+- 老板可以看到全部任务，并且可以点击 **Release to Hall** 把被接走但未完成的任务释放回大厅。
+- 抢单使用数据库条件更新：只有 `pending + claimed_by IS NULL + assigned_to IS NULL` 的任务能被成功 Claim，避免两个组长同时抢到同一单。
+
+新增数据库字段：
+
+```text
+redemption_tasks.claimed_by
+redemption_tasks.claimed_at
+```
+
+升级时系统会自动添加字段，不需要手动改数据库。

@@ -11,7 +11,7 @@
         {% elif current_user.role == 'staff' %}
           Your active tasks are sorted by submission time. Finished tasks move to Archive.
         {% else %}
-          Active tasks only. Oldest queued orders appear first.
+          New orders appear in Task Hall first. Claim an order before handling it or assigning it to your staff.
         {% endif %}
       </p>
     </div>
@@ -28,7 +28,10 @@
   </div>
 
   <div class="stats-grid queue-stats">
-    <div class="stat"><div class="stat-num">{{ queue_counts.get('pending', 0) }}</div><div class="stat-label">Waiting</div></div>
+    {% if current_user.role in ['owner', 'lead'] %}
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('hall', 0) }}</div><div class="stat-label">Task Hall</div></div>
+    {% endif %}
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('pending', 0) }}</div><div class="stat-label">Claimed Waiting</div></div>
     <div class="stat"><div class="stat-num">{{ queue_counts.get('assigned', 0) }}</div><div class="stat-label">Assigned</div></div>
     <div class="stat"><div class="stat-num">{{ queue_counts.get('processing', 0) }}</div><div class="stat-label">Processing</div></div>
     <div class="stat"><div class="stat-num">{{ queue_counts.get('success_today', 0) }}</div><div class="stat-label">Success Today</div></div>
@@ -50,12 +53,40 @@
       {% endif %}
     </select>
     {% if current_user.role in ['owner', 'lead'] %}
-      <input name="q" value="{{ q or '' }}" placeholder="Search CDK / Token">
+      <input name="q" value="{{ q or '' }}" placeholder="Search CDK{% if archive_mode %} / Token{% endif %}">
     {% endif %}
     <button type="submit">Filter</button>
   </form>
 </section>
-<section class="card">
+
+{% if not archive_mode and current_user.role in ['owner', 'lead'] %}
+<section class="card hall-section">
+  <div class="split-title">
+    <div>
+      <h2>Task Hall</h2>
+      <p class="muted">Unclaimed orders only. Claim first to view the token and processing actions.</p>
+    </div>
+  </div>
+  {% set tasks = hall_tasks %}
+  {% set task_card_mode = 'hall' %}
   {% include "task_cards.html" with context %}
 </section>
+
+<section class="card">
+  <div class="split-title">
+    <div>
+      <h2>{{ 'All Claimed Active Tasks' if current_user.role == 'owner' else 'My Claimed Tasks' }}</h2>
+      <p class="muted">Token, Assign, Start, Success and Failed are available only after claim.</p>
+    </div>
+  </div>
+  {% set tasks = claimed_tasks %}
+  {% set task_card_mode = 'work' %}
+  {% include "task_cards.html" with context %}
+</section>
+{% else %}
+<section class="card">
+  {% set task_card_mode = 'work' %}
+  {% include "task_cards.html" with context %}
+</section>
+{% endif %}
 {% endblock %}

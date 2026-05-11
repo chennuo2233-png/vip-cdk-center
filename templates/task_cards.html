@@ -1,7 +1,8 @@
 {% if tasks %}
 <div class="task-list compact-task-list">
   {% for t in tasks %}
-  <details class="task-card task-collapse">
+  {% set is_hall = task_card_mode|default('work') == 'hall' %}
+  <details class="task-card task-collapse {{ 'hall-card' if is_hall else '' }}">
     <summary class="task-summary">
       <div class="task-summary-main">
         <span class="task-id">#{{ t.id }}</span>
@@ -15,11 +16,46 @@
         </span>
       </div>
       <div class="task-summary-meta">
-        <span class="badge {{ t.status }}">{{ task_status_text.get(t.status, t.status) }}</span>
-        <span class="assigned-pill">{{ t.assigned_name or 'Unassigned' }}</span>
+        {% if is_hall %}
+          <span class="badge pending">Hall</span>
+          <span class="assigned-pill">Unclaimed</span>
+        {% else %}
+          <span class="badge {{ t.status }}">{{ task_status_text.get(t.status, t.status) }}</span>
+          <span class="assigned-pill">
+            {% if t.assigned_name %}
+              {{ t.assigned_name }}
+            {% elif t.claimed_name %}
+              Claimed by {{ t.claimed_name }}
+            {% else %}
+              Unassigned
+            {% endif %}
+          </span>
+        {% endif %}
       </div>
     </summary>
 
+    {% if is_hall %}
+    <div class="task-grid hall-task-grid">
+      <div>
+        <label class="mini-label">Task Hall</label>
+        <div class="field-box">This order is waiting for a team lead to claim it. Token and processing actions are hidden until claimed.</div>
+      </div>
+      <div>
+        <label class="mini-label">Created</label>
+        <div class="field-box">{{ t.created_at }}</div>
+        <label class="mini-label">CDK Status</label>
+        <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
+      </div>
+      <div class="actions-col">
+        {% if current_user.role in ['owner', 'lead'] %}
+        <form method="post" action="{{ url_for('claim_task', task_id=t.id) }}" class="mini-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="success-btn">Claim</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
     <div class="task-grid">
       <div>
         <label class="mini-label">Token</label>
@@ -33,6 +69,8 @@
         <div class="field-box">{{ t.created_at }}</div>
         <label class="mini-label">CDK Status</label>
         <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
+        <label class="mini-label">Claimed By</label>
+        <div class="field-box">{{ t.claimed_name or 'Unclaimed' }}</div>
         <label class="mini-label">Assigned To</label>
         <div class="field-box">{{ t.assigned_name or 'Unassigned' }}</div>
         {% if current_user.role == 'owner' and t.fail_reason %}
@@ -45,6 +83,13 @@
         {% endif %}
       </div>
       <div class="actions-col">
+        {% if current_user.role == 'owner' and t.status not in ['success','failed'] and (t.claimed_by or t.assigned_to) %}
+        <form method="post" action="{{ url_for('release_task', task_id=t.id) }}" class="mini-form" onsubmit="return confirm('Release this task back to Task Hall?');">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="secondary">Release to Hall</button>
+        </form>
+        {% endif %}
+
         {% if current_user.role in ['owner', 'lead'] and t.status not in ['success','failed'] %}
         <form method="post" action="{{ url_for('assign_task', task_id=t.id) }}" class="mini-form">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -89,6 +134,7 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
   </details>
   {% endfor %}
 </div>

@@ -453,3 +453,17 @@ th { background: #f9fafb; font-weight: 700; }
   .task-summary-meta { justify-content: flex-start; }
   .member-metrics { grid-template-columns: 1fr; }
 }
+
+/* V2.5 Task Hall / Claim workflow */
+.hall-section {
+  border-color: #dbeafe;
+}
+.hall-card .task-summary {
+  background: #eff6ff;
+}
+.hall-card .field-box {
+  background: #f8fafc;
+}
+.hall-task-grid {
+  grid-template-columns: minmax(260px, 1.2fr) minmax(220px, .8fr) minmax(180px, .6fr);
+}
