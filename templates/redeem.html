@@ -2,7 +2,7 @@
 {% set title = '用户兑换' %}
 {% block content %}
 <section class="card narrow redeem-card">
-  <h1>PLUS 兑换</h1>
+  <h1>CDK核销</h1>
   <p class="muted">按下面 3 个步骤提交。提交后进入排队中，充值到账通常需要 3-5 分钟，请耐心等待。</p>
 
   <div class="steps-flow" aria-label="兑换流程">
@@ -16,8 +16,8 @@
     <div class="step-item">
       <div class="step-num">2</div>
       <div>
-        <h2>获取 Token</h2>
-        <p>先去网页 1 登录，再去网页 2 复制完整内容。</p>
+        <h2>输入你的收货邮箱</h2>
+        <p>激活链接会发送到你邮箱，请输入谷歌邮箱，即Gmail</p>
         <div class="step-buttons">
           <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
           <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
@@ -27,8 +27,8 @@
     <div class="step-item">
       <div class="step-num">3</div>
       <div>
-        <h2>提交开通</h2>
-        <p>把完整内容粘贴到 Token 框，点击“提交开通”确认并完成。</p>
+        <h2>提交任务</h2>
+        <p>点击“提交开通”确认稍作等待</p>
       </div>
     </div>
   </div>
@@ -42,8 +42,8 @@
     <input type="hidden" name="action" value="redeem">
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
-    <label>Token 令牌</label>
-    <textarea name="token" rows="6" placeholder="请完整粘贴从网页 2 复制的全部内容。" required></textarea>
+    <label>收货邮箱</label>
+    <textarea name="token" rows="6" placeholder="比如xxxxxxxx@gmail.com" required></textarea>
     <button type="submit">提交开通</button>
   </form>
 
