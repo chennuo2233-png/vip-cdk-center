@@ -68,8 +68,7 @@ FAIL_REASONS = [
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-# API 接入专属秘月（请务必修改成一个复杂的字符串，并私下发给你的合作方）
-API_SECRET_KEY = "partner_geminikt_secret_2026"
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -1724,29 +1723,7 @@ def owner_logs():
         ).fetchall()
     return render_template("logs.html", logs=logs)
 
-# --- 上面是你原本代码里最后一个功能的代码 ---
-@app.route('/ops/team/<user_id>')
-def view_staff_tasks(user_id):
-    # ... 原本的代码逻辑 ...
-    return render_template(...)
 
-
-# 👇 【第二步：把两段 API 代码完整粘贴在这个空隙处】 👇
-
-@app.route('/api/v1/redeem', methods=['POST'])
-def api_redeem():
-    # ... 兑换接口的完整代码 ...
-    pass # (把上一条回复里的完整代码贴过来)
-
-@app.route('/api/v1/query', methods=['GET'])
-def api_query():
-    # ... 查询接口的完整代码 ...
-    pass # (把上一条回复里的完整代码贴过来)
-
-# 👆 ------------------------------------------ 👆
-
-
-# --- 下面是你原本 app.py 最底部的结尾代码 ---
 if __name__ == '__main__':
     app.run(debug=False)
 
