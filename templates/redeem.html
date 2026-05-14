@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">按下面 3 个步骤提交。提交后进入排队中，充值到账通常需要 3-5 分钟，请耐心等待。</p>
+  <p class="muted">按下面 3 个步骤提交。提交后进入排队中， 1-3 分钟后发送到邮箱，可能在垃圾（spam）邮件里。</p>
 
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item">
@@ -28,7 +28,7 @@
       <div class="step-num">3</div>
       <div>
         <h2>提交任务</h2>
-        <p>点击“提交开通”确认稍作等待</p>
+        <p>点击“提交开通”后，稍待3分钟</p>
       </div>
     </div>
   </div>
@@ -43,13 +43,13 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>收货邮箱</label>
-    <textarea name="token" rows="6" placeholder="比如xxxxxxxx@gmail.com" required></textarea>
+    <textarea name="token" rows="6" placeholder="如xxxxxxxx@gmail.com" required></textarea>
     <button type="submit">提交开通</button>
   </form>
 
   <hr>
   <h2>订单状态查询</h2>
-  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个。</p>
+  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个【售后问题，直接回信发件邮箱即可，人工24小时在线】。</p>
   <form method="post" class="form batch-check-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check">
