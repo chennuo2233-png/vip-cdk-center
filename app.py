@@ -37,9 +37,9 @@ PUBLIC_STATUS_TEXT = {
     "pending": "排队中，请等待10分钟。",
     "assigned": "排队中，请等待5分钟。",
     "processing": "排队中，请等待3分钟。。",
-    "success": "充值成功。",
-    "failed": "请换一个账号重新提交Token。",
-    "redeemed": "充值成功，兑换码已核销。",
+    "success": "核销成功。",
+    "failed": "核销失败，今日库存以上限，明日再试。",
+    "redeemed": "核销成功，兑换码已核销。",
     "disabled": "兑换码不可用，请联系购买渠道管理员。",
 }
 
