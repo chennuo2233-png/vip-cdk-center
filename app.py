@@ -34,9 +34,9 @@ USER_ROLES = {"owner", "lead", "staff"}
 PUBLIC_STATUS_TEXT = {
     "created": "兑换码尚未上架。",
     "distributed": "待提交。",
-    "pending": "排队中，请等待10分钟。",
-    "assigned": "排队中，请等待5分钟。",
-    "processing": "排队中，请等待3分钟。。",
+    "pending": "排队中，请耐心等待。",
+    "assigned": "排队中，请耐心等待。",
+    "processing": "排队中，请耐心等待。",
     "success": "核销成功。",
     "failed": "核销失败，CDK任然可以使用，联系销售员或换个邮箱再试试。",
     "redeemed": "核销成功，兑换码已核销。",
