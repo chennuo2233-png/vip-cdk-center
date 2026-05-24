@@ -38,7 +38,7 @@ PUBLIC_STATUS_TEXT = {
     "assigned": "排队中，请等待5分钟。",
     "processing": "排队中，请等待3分钟。。",
     "success": "核销成功。",
-    "failed": "核销失败，今日库存以上限，明日再试。",
+    "failed": "核销失败，CDK任然可以使用，联系销售员或换个邮箱再试试。",
     "redeemed": "核销成功，兑换码已核销。",
     "disabled": "兑换码不可用，请联系购买渠道管理员。",
 }
