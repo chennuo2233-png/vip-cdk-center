@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">按下面 3 个步骤提交。提交后进入排队中， 30分钟左右后发送到邮箱，可能在垃圾（spam）邮件里。</p>
+  <p class="muted">按下面 3 个步骤提交。提交后进入排队中，工作日内人工手动邀请，会发送到邮箱，可能在垃圾（spam）邮件里。</p>
 
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item">
@@ -16,8 +16,8 @@
     <div class="step-item">
       <div class="step-num">2</div>
       <div>
-        <h2>输入你的收货邮箱</h2>
-        <p>我们会通过邮箱发给你，请留意【猫哥来信】，请填写你要充值的邮箱！</p>
+        <h2>输入你的邮箱</h2>
+        <p>我们会手动邀请这个邮箱，请确保为你需要充值的邮箱</p>
         <div class="step-buttons">
           <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
           <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
@@ -28,7 +28,7 @@
       <div class="step-num">3</div>
       <div>
         <h2>提交任务</h2>
-        <p>点击“提交开通”后不会核销卡密，充值成功后才会核销掉卡密</p>
+        <p>点击“提交开通”后，我们会收到任务，并会尽快邀请你，请耐心等待。</p>
       </div>
     </div>
   </div>
@@ -43,13 +43,13 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>收货邮箱</label>
-    <textarea name="token" rows="6" placeholder="我们会通过邮箱发货给你，请留意【猫哥来信】，请填写你要充值的邮箱！" required></textarea>
+    <textarea name="token" rows="6" placeholder="我们会手动邀请这个邮箱，请确保为你需要充值的邮箱" required></textarea>
     <button type="submit">提交开通</button>
   </form>
 
   <hr>
   <h2>订单状态查询</h2>
-  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个【售后问题，直接回信发件邮箱即可，人工24小时在线】。</p>
+  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个【售后问题请凭CDK联系销售人员】。</p>
   <form method="post" class="form batch-check-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check">
