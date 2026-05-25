@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">按下面 3 个步骤提交。提交后进入排队中，工作日内人工手动邀请，会发送到邮箱，可能在垃圾（spam）邮件里。</p>
+  <p class="muted">按下面 3 个步骤提交。提交后进入排队中，7x24处理，相关结果会发送到邮箱，可能在垃圾（spam）邮件里。</p>
 
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item">
@@ -16,8 +16,8 @@
     <div class="step-item">
       <div class="step-num">2</div>
       <div>
-        <h2>输入你的邮箱</h2>
-        <p>我们会手动邀请这个邮箱，请确保为你需要充值的邮箱</p>
+        <h2>输入邮箱</h2>
+        <p>请输入你的任意平台邮箱</p>
         <div class="step-buttons">
           <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
           <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
@@ -28,7 +28,7 @@
       <div class="step-num">3</div>
       <div>
         <h2>提交任务</h2>
-        <p>点击“提交开通”后，我们会收到任务，并会尽快邀请你，请耐心等待。</p>
+        <p>点击“提交任务”后，任务进入排队中，请耐心等待。</p>
       </div>
     </div>
   </div>
@@ -43,8 +43,8 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>收货邮箱</label>
-    <textarea name="token" rows="6" placeholder="我们会手动邀请这个邮箱，请确保为你需要充值的邮箱" required></textarea>
-    <button type="submit">提交开通</button>
+    <textarea name="token" rows="6" placeholder="如果你购买的是【Claude Seat】系列产品，我们会手动邀请这个邮箱，请确保为你需要充值的邮箱&#10;&#10;如果你购买的是【Claude Cookie】系列产品，我们会发送sessionKey " required></textarea>
+    <button type="submit">提交任务</button>
   </form>
 
   <hr>
