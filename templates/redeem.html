@@ -3,14 +3,14 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">请按以下 3 个步骤提交信息。提交成功后，订单将进入排队处理，由人工审核并处理。处理完成后，结果将发送至你填写的邮箱；若未收到，请检查垃圾邮件或 Spam 文件夹。</p>
+  <p class="muted">请按以下 3 个步骤提交信息。提交成功后，订单将进入排队处理，由人工审核并处理。处理完成后，结果将发送至你填写的邮箱；若未收到，请检查垃圾邮件或 Spam 文件夹</p>
 <!-- 按下面 3 个步骤提交。提交后进入排队中，专业人工处理，准确高效交付，相关结果会发送到邮箱，可能在垃圾（spam）邮件里。 -->
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item">
       <div class="step-num">1</div>
       <div>
         <h2>输入 CDK</h2>
-        <p>输入你收到的 CDK（兑换码）。</p>
+        <p>请输入 CDK（兑换码）</p>
       </div>
     </div>
     <div class="step-item">
@@ -43,13 +43,13 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>收货邮箱</label>
-    <textarea name="token" rows="6" placeholder="【Claude Seat】产品：请填写需要被邀请的邮箱，我们会手动发送邀请。&#10;&#10;【Claude Cookie】产品：Session Key 将发送至你的邮箱。 " required></textarea>
+    <textarea name="token" rows="6" placeholder="【Claude Seat】产品：请填写需要被邀请的邮箱，我们会手动发送邀请&#10;&#10;【Claude Cookie】产品：Session Key 将发送至你的邮箱 " required></textarea>
     <button type="submit">提交任务</button>
   </form>
 
   <hr>
   <h2>订单状态查询</h2>
-  <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 1000 个；核销失败不消耗 CDK。</p>
+  <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 1000 个；核销失败不消耗 CDK</p>
   <form method="post" class="form batch-check-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check">
