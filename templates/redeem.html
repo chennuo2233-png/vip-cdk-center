@@ -49,7 +49,7 @@
 
   <hr>
   <h2>订单状态查询</h2>
-  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个【售后问题请凭CDK联系销售人员】。</p>
+  <p class="muted small">可一次输入多个 CDK，支持逗号、空格或换行分隔，最多 1000 个【核销失败不消耗CDK】。</p>
   <form method="post" class="form batch-check-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check">
