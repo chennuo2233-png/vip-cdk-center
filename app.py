@@ -34,11 +34,11 @@ USER_ROLES = {"owner", "lead", "staff"}
 PUBLIC_STATUS_TEXT = {
     "created": "兑换码尚未上架。",
     "distributed": "待提交。",
-    "pending": "排队中，请耐心等待。",
-    "assigned": "排队中，请耐心等待。",
-    "processing": "排队中，请耐心等待。",
+    "pending": "排队中，请耐心等待",
+    "assigned": "已分配，请耐心等待",
+    "processing": "处理中，请耐心等待约15分钟",
     "success": "核销成功。",
-    "failed": "核销失败，CDK任然可以使用，联系销售员或换个邮箱再试试。",
+    "failed": "核销失败，所填信息已过期或错误，CDK任然可以使用，请核对后再次提交，或联系销售人员退款",
     "redeemed": "核销成功，兑换码已核销。",
     "disabled": "兑换码不可用，请联系购买渠道管理员。",
 }
