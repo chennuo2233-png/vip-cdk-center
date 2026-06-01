@@ -3,7 +3,10 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">请按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理。【工作时间：自然日北京时间9：00-21：00】&#10;当天21：00之后提交的，需要等到第二天9：00查看处理结果</p>
+  <p class="muted">
+  按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理。【工作时间：自然日北京时间9：00-21：00】<br>
+  当天21：00之后提交的，需要等到第二天9：00查看处理结果
+</p>
 <!-- 按下面 3 个步骤提交。提交后进入排队中，专业人工处理，准确高效交付，相关结果会发送到邮箱，可能在垃圾（spam）邮件里。 -->
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item">
@@ -43,7 +46,7 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>输入相关信息</label>
-    <textarea name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式有序即可，人工处理 " required></textarea>
+    <textarea name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式要求，有序即可，人工处理 " required></textarea>
     <button type="submit">提交任务</button>
   </form>
 
