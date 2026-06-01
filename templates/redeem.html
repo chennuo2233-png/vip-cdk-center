@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">请按以下 3 个步骤提交信息。提交成功后，订单将进入排队处理，由人工审核并处理。处理完成后，结果将发送至你填写的邮箱；若未收到，请检查垃圾邮件或 Spam 文件夹</p>
+  <p class="muted">请按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理。【工作时间：自然日北京时间9：00-21：00】&#10;当天21：00之后提交的，需要等到第二天9：00查看处理结果</p>
 <!-- 按下面 3 个步骤提交。提交后进入排队中，专业人工处理，准确高效交付，相关结果会发送到邮箱，可能在垃圾（spam）邮件里。 -->
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item">
@@ -16,8 +16,8 @@
     <div class="step-item">
       <div class="step-num">2</div>
       <div>
-        <h2>输入邮箱</h2>
-        <p>请输入用于接收结果的邮箱地址</p>
+        <h2>输入相关信息</h2>
+        <p>你需要提供三个信息【Claude登录邮箱】【Organization ID】【SessionKey】</p>
         <div class="step-buttons">
           <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
           <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
@@ -28,7 +28,7 @@
       <div class="step-num">3</div>
       <div>
         <h2>提交任务</h2>
-        <p>提交后将进入排队处理，请耐心等待</p>
+        <p>提交后将进入排队处理，请耐心等待。平均处理时间为10分钟，泡杯茶，稍作休息。遇到任何问题可以联系销售人员。</p>
       </div>
     </div>
   </div>
@@ -42,8 +42,8 @@
     <input type="hidden" name="action" value="redeem">
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
-    <label>收货邮箱</label>
-    <textarea name="token" rows="6" placeholder="例如：name123@example.com&#10;&#10;【Claude Seat】产品：请填写需要被邀请的邮箱，我们会手动发送邀请&#10;【Claude Cookie】产品：Session Key 将发送至你的邮箱 " required></textarea>
+    <label>输入相关信息</label>
+    <textarea name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式有序即可，人工处理 " required></textarea>
     <button type="submit">提交任务</button>
   </form>
 
