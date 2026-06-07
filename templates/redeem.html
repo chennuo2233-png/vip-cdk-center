@@ -20,7 +20,10 @@
       <div class="step-num">2</div>
       <div>
         <h2>输入相关信息</h2>
-        <p>你需要提供三个信息【Claude登录邮箱】【Organization ID】【SessionKey】</p>
+        <p>
+          你需要提供三个信息【Claude登录邮箱】【Organization ID】【SessionKey】<br>
+          （*📢：如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱）
+        </p>
         <div class="step-buttons">
           <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
           <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
@@ -46,7 +49,7 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>输入相关信息</label>
-    <textarea name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式要求，有序即可，人工处理 " required></textarea>
+    <textarea name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式要求，有序即可，人工处理&#10;（*📢：如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱） " required></textarea>
     <button type="submit">提交任务</button>
   </form>
 
