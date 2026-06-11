@@ -36,7 +36,7 @@ PUBLIC_STATUS_TEXT = {
     "distributed": "待提交。",
     "pending": "排队中，请耐心等待",
     "assigned": "已分配，请耐心等待",
-    "processing": "处理中，请耐心等待约15分钟",
+    "processing": "处理中，请耐心等待",
     "success": "核销成功。",
     "failed": "核销失败，所填信息已过期或错误，CDK任然可以使用，请核对后再次提交，或联系销售人员退款",
     "redeemed": "核销成功，兑换码已核销。",
