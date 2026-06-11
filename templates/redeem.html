@@ -3,8 +3,24 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
+
+  <div class="product-switcher" aria-label="产品选择">
+    <div class="product-switcher-title">⚠️请选择您购买的产品</div>
+    <div class="product-options">
+      <label class="product-option active" data-product-option="product1">
+        <input type="radio" name="product_choice_ui" value="product1" checked>
+        <span>Claude</span>
+      </label>
+      <label class="product-option" data-product-option="product2">
+        <input type="radio" name="product_choice_ui" value="product2">
+        <span>ChatGPT</span>
+      </label>
+    </div>
+    <p class="product-switcher-hint">==============</p>
+  </div>
+
   <p class="muted">
-  按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理【工作时间：自然日北京时间11：00-17：10】。<br>
+  按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理【自然日北京时间11：00-17：10】。<br>
   当天17：10之后提交的，需要等到第二天11：00查看处理结果。
 </p>
 
@@ -20,13 +36,13 @@
       <div class="step-num">2</div>
       <div>
         <h2>输入相关信息</h2>
-        <p>
+        <p id="productGuideText">
           你需要提供三个信息【Claude登录邮箱】【Organization ID】【SessionKey】<br>
           （*📢：如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱）
         </p>
         <div class="step-buttons">
-          <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
-          <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
+          <a id="step2LoginButton" class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
+          <a id="step2CopyButton" class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
         </div>
       </div>
     </div>
@@ -34,7 +50,7 @@
       <div class="step-num">3</div>
       <div>
         <h2>提交任务</h2>
-        <p>提交后将进入排队处理，请耐心等待。平均处理时间为10分钟，泡杯茶，稍作休息。遇到任何问题可以联系销售人员。</p>
+        <p>提交后将进入排队处理，请耐心等待。平均处理时间为30分钟，泡杯茶，稍作休息。遇到任何问题带着CDK联系销售人员。</p>
       </div>
     </div>
   </div>
@@ -49,13 +65,13 @@
     <label>CDK（兑换码）</label>
     <input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>输入相关信息</label>
-    <textarea name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式要求，有序即可，人工处理&#10;（*📢：如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱） " required></textarea>
+    <textarea id="tokenTextarea" name="token" rows="6" placeholder="【Claude登录邮箱】&#10;【Organization ID】&#10;【SessionKey】&#10;无特定格式要求，有序即可，人工处理&#10;（*📢：如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱） " required></textarea>
     <button type="submit">提交任务</button>
   </form>
 
   <hr>
   <h2>订单状态查询</h2>
-  <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 1000 个；核销失败不消耗 CDK</p>
+  <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 100 个；核销失败不消耗 CDK</p>
   <form method="post" class="form batch-check-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check">
@@ -103,6 +119,110 @@ CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
     {% endif %}
   </div>
   {% endif %}
+
+  <style>
+  .product-switcher {
+    margin: 18px 0;
+  }
+
+  .product-switcher-title {
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .product-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 120px;
+    padding: 12px 18px;
+    margin-right: 10px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    background: #fff;
+  }
+
+  .product-option.active {
+    border-width: 2px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+  }
+
+  .product-option input {
+    display: none;
+  }
+</style>
+
+  <script>
+    const PRODUCT_CONFIG = {
+      product1: {
+        guideHtml: `你需要提供三个信息【Claude登录邮箱】【SessionKey】【Organization ID】<br>
+          （*📢: 如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱）`,
+        placeholder: `【Claude登录邮箱】
+【Organization ID】
+【SessionKey】
+无特定格式要求，有序即可，人工处理
+（*📢: 如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱）`,
+        loginUrl: {{ step2_login_url|tojson }},
+        copyUrl: {{ step2_copy_url|tojson }},
+        loginLabel: {{ step2_login_label|tojson }},
+        copyLabel: {{ step2_copy_label|tojson }}
+      },
+      product2: {
+        // 产品二的内容请直接在这里硬编码。
+        // 下面这些只是占位示例，你把文字和链接替换成自己的即可。
+        guideHtml: `你需要登录【ChatGPT】并提供【账号 AuthSession 信息】<br>
+          请按照下方教程填写，信息错误卡密会核销失败，可以再次提交。`,
+        placeholder: `📘操作指南
+步骤1：登录 ChatGPT
+打开上方【网页1】确保ChatGPT官网登录着你要充值的账号。
+
+步骤2：获取账号 AuthSession 信息
+打开上方【网页2】并复制全部内容完整填写在这里。
+
+示例：{"WARNING_BANNER":"…………………………………………
+`,
+        loginUrl: 'https://chatgpt.com/',
+        copyUrl: 'https://chatgpt.com/api/auth/session',
+        loginLabel: '【网页1】',
+        copyLabel: '【网页2】'
+      }
+    };
+
+    function applyProduct(productKey) {
+      const config = PRODUCT_CONFIG[productKey] || PRODUCT_CONFIG.product1;
+      const guideText = document.getElementById('productGuideText');
+      const textarea = document.getElementById('tokenTextarea');
+      const loginButton = document.getElementById('step2LoginButton');
+      const copyButton = document.getElementById('step2CopyButton');
+
+      guideText.innerHTML = config.guideHtml;
+      textarea.placeholder = config.placeholder;
+      loginButton.href = config.loginUrl;
+      loginButton.textContent = config.loginLabel;
+      copyButton.href = config.copyUrl;
+      copyButton.textContent = config.copyLabel;
+
+      document.querySelectorAll('[data-product-option]').forEach(option => {
+        const isActive = option.dataset.productOption === productKey;
+        option.classList.toggle('active', isActive);
+        const input = option.querySelector('input[type="radio"]');
+        if (input) {
+          input.checked = isActive;
+        }
+      });
+    }
+
+    document.querySelectorAll('input[name="product_choice_ui"]').forEach(input => {
+      input.addEventListener('change', event => {
+        applyProduct(event.target.value);
+      });
+    });
+
+    applyProduct('product1');
+  </script>
 </section>
 {% endblock %}
-<!-- 分销商招募：（微信:Jmm_JimmyCat) 备注：wzzz -->
