@@ -159,12 +159,12 @@ CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
   <script>
     const PRODUCT_CONFIG = {
       product1: {
-        guideHtml: `你需要提供三个信息【Claude登录邮箱】【SessionKey】【Organization ID】<br>
-         ,
-        placeholder: `【Claude登录邮箱】
+        guideHtml: `你需要提供三个信息【Claude登录邮箱】【SessionKey】【Organization ID】<br>`,
+
+placeholder: `【Claude登录邮箱】
 【Organization ID】
 【SessionKey】
-无特定格式要求，有序即可，人工处理
+无特定格式要求，有序即可，人工处理`,
 ,
         loginUrl: {{ step2_login_url|tojson }},
         copyUrl: {{ step2_copy_url|tojson }},
