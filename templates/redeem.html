@@ -50,7 +50,7 @@
       <div class="step-num">3</div>
       <div>
         <h2>提交任务</h2>
-        <p>提交后将进入排队处理，请耐心等待。平均处理时间为30分钟，泡杯茶，稍作休息。遇到任何问题带着CDK联系销售人员。</p>
+        <p>提交后将进入排队处理，请耐心等待。平均处理时间为30分钟左右，泡杯茶，稍作休息。超过3个小时的意外情况或遇到其他任何问题带着CDK联系销售人员。</p>
       </div>
     </div>
   </div>
@@ -160,12 +160,12 @@ CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
     const PRODUCT_CONFIG = {
       product1: {
         guideHtml: `你需要提供三个信息【Claude登录邮箱】【SessionKey】【Organization ID】<br>
-          （*📢: 如果您需要的是成品号，可以直接在这里留言，然后留下你的邮箱，工作时间内我会立刻发给你）`,
+          （*📢: 如果您需要的是成品号（已过KYC），可以直接在这里留言，然后留下你的邮箱，工作时间内我会立刻发给你）`,
         placeholder: `【Claude登录邮箱】
 【Organization ID】
 【SessionKey】
 无特定格式要求，有序即可，人工处理
-（*📢: 如果您需要的是成品号，可以直接在这里留言，然后留下你的邮箱，工作时间内我会立刻发给你）`,
+（*📢: 如果您需要的是成品号（已过KYC），可以直接在这里留言，然后留下你的邮箱，工作时间内我会立刻发给你）`,
         loginUrl: {{ step2_login_url|tojson }},
         copyUrl: {{ step2_copy_url|tojson }},
         loginLabel: {{ step2_login_label|tojson }},
@@ -179,7 +179,8 @@ CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
         placeholder: `📘注意
 我们只邀请普通个人邮箱,（一般邮箱均可被邀请）；
 请不要使用公司邮箱，一次性邮箱等；
-邮箱不合规会被打回，可以再次更换邮箱。
+邮箱不合规会被打回，可以再次更换邮箱;
+人工邀请，通常会在0.5~1小时内处理，还请耐心等待
 `,
         loginUrl: 'https:/',
         copyUrl: 'https:/',
