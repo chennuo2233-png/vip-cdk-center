@@ -160,12 +160,12 @@ CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
     const PRODUCT_CONFIG = {
       product1: {
         guideHtml: `你需要提供三个信息【Claude登录邮箱】【SessionKey】【Organization ID】<br>
-          （*📢: 如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱）`,
+          （*📢: 如果您需要的是成品号，可以直接在这里留言，然后留下你的邮箱，工作时间内我会立刻发给你）`,
         placeholder: `【Claude登录邮箱】
 【Organization ID】
 【SessionKey】
 无特定格式要求，有序即可，人工处理
-（*📢: 如果您购买的是Claude标准/高级席位，则只需要输入邮箱即可，我们会手动邀请这个邮箱）`,
+（*📢: 如果您需要的是成品号，可以直接在这里留言，然后留下你的邮箱，工作时间内我会立刻发给你）`,
         loginUrl: {{ step2_login_url|tojson }},
         copyUrl: {{ step2_copy_url|tojson }},
         loginLabel: {{ step2_login_label|tojson }},
@@ -174,21 +174,17 @@ CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea>
       product2: {
         // 产品二的内容请直接在这里硬编码。
         // 下面这些只是占位示例，你把文字和链接替换成自己的即可。
-        guideHtml: `你需要登录【ChatGPT】并提供【账号 AuthSession 信息】<br>
-          请按照下方教程填写，信息错误卡密会核销失败，可以再次提交。`,
-        placeholder: `📘操作指南
-步骤1：登录 ChatGPT
-打开上方【网页1】确保ChatGPT官网登录着你要充值的账号。
-
-步骤2：获取账号 AuthSession 信息
-打开上方【网页2】并复制全部内容完整填写在这里。
-
-示例：{"WARNING_BANNER":"…………………………………………
+        guideHtml: `只需要提供你的Claude登录邮箱即可<br>
+          我们会手动邀请这个邮箱。`,
+        placeholder: `📘注意
+我们只邀请普通个人邮箱,（一般邮箱均可被邀请）；
+请不要使用公司邮箱，一次性邮箱等；
+邮箱不合规会被打回，可以再次更换邮箱。
 `,
-        loginUrl: 'https://chatgpt.com/',
-        copyUrl: 'https://chatgpt.com/api/auth/session',
-        loginLabel: '【网页1】',
-        copyLabel: '【网页2】'
+        loginUrl: 'https:/',
+        copyUrl: 'https:/',
+        loginLabel: '【===】',
+        copyLabel: '【===】'
       }
     };
 
