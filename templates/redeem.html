@@ -3,48 +3,84 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-  <p class="muted">按以下步骤提交信息。订单将进入人工队列处理；提交后请保存 CDK 以便查询状态。</p>
-  {% if result %}<div class="alert {{ result.type }}">{{ result.message }}</div>{% endif %}
+
   {% if products %}
-  <form method="post" class="form redeem-form">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="redeem">
-    <label>选择产品类目</label>
+  <div class="product-switcher" aria-label="产品选择">
+    <div class="product-switcher-title">⚠️请选择您购买的产品</div>
     <div class="product-options">
       {% for product in products %}
-      <label class="product-option {{ 'active' if loop.first else '' }}" data-product-option>
-        <input type="radio" name="product_id" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" {% if loop.first %}checked{% endif %}>
+      <label class="product-option {{ 'active' if loop.first else '' }}" data-product-option="{{ product.id }}">
+        <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" {% if loop.first %}checked{% endif %}>
         <span>{{ product.name }}</span>
       </label>
       {% endfor %}
     </div>
-    <div class="status-box"><strong id="productName">{{ products[0].name }}</strong><div id="productGuidance">{{ products[0].guidance }}</div></div>
-    <div class="step-buttons">
-      <a class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
-      <a class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
+    <p class="product-switcher-hint">==============</p>
+  </div>
+
+  <p class="muted">
+    按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理【自然日北京时间11：30-17：10】。<br>
+    当天17：10之后提交的，需要等到第二天11：30查看处理结果。
+  </p>
+
+  <div class="steps-flow" aria-label="兑换流程">
+    <div class="step-item"><div class="step-num">1</div><div><h2>输入 CDK</h2><p>请输入 CDK（兑换码）</p></div></div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div>
+        <h2>输入相关信息</h2>
+        <p id="productGuideText" style="white-space: pre-line;">{{ products[0].guidance }}</p>
+        <div class="step-buttons">
+          <a id="step2LoginButton" class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
+          <a id="step2CopyButton" class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
+        </div>
+      </div>
     </div>
+    <div class="step-item"><div class="step-num">3</div><div><h2>提交任务</h2><p>提交后将进入排队处理，请耐心等待。平均处理时间为30分钟左右，泡杯茶，稍作休息。超过3个小时的意外情况或遇到其他任何问题带着CDK联系销售人员。</p></div></div>
+  </div>
+  {% else %}
+  <div class="alert error">当前没有可兑换的产品，请联系销售人员。</div>
+  {% endif %}
+
+  {% if result %}<div class="alert {{ result.type }}">{{ result.message }}</div>{% endif %}
+
+  {% if products %}
+  <form method="post" class="form redeem-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="redeem">
+    <input type="hidden" id="selectedProductId" name="product_id" value="{{ products[0].id }}">
     <label>CDK（兑换码）</label><input name="proxy_code" placeholder="例如 CNVIP-K8Q4-M2PX" required>
     <label>输入相关信息</label><textarea id="tokenTextarea" name="token" rows="6" placeholder="{{ products[0].input_placeholder }}" required></textarea>
     <button type="submit">提交任务</button>
   </form>
-  {% else %}<div class="alert error">当前没有可兑换的产品，请联系销售人员。</div>{% endif %}
+  {% endif %}
+
+  <hr><h2>订单状态查询</h2>
+  <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 1000 个；核销失败不消耗 CDK</p>
+  <form method="post" class="form batch-check-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="check">
+    <textarea name="proxy_codes" rows="5" placeholder="例如：&#10;CNVIP-K8Q4-M2PX, CNVIP-ABCD-1234&#10;CNVIP-WXYZ-5678" required>{{ status_query_input or '' }}</textarea><button type="submit">批量查询</button>
+  </form>
+
+  {% if status_results %}<div class="batch-status-results"><div class="table-wrap"><table><thead><tr><th>#</th><th>CDK</th><th>卡密状态</th><th>最近订单</th><th>用户提示</th></tr></thead><tbody>{% for item in status_results %}<tr><td>{{ loop.index }}</td><td class="mono">{{ item.proxy_code }}</td><td>{{ code_status_text.get(item.code_status, item.code_status) }}</td><td>{{ task_status_text.get(item.task_status, item.task_status) if item.task_status else '-' }}</td><td><span class="batch-message {{ item.type }}">{{ item.message }}</span></td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+
   {% if code_row %}<div class="status-box"><div>CDK：<strong>{{ code_row.proxy_code }}</strong></div><div>卡密状态：<strong>{{ code_status_text.get(code_row.status, code_row.status) }}</strong></div>{% if latest_task %}<div>最近订单：<strong>{{ status_text.get(latest_task.status, latest_task.status) }}</strong></div>{% endif %}</div>{% endif %}
-  <hr><h2>订单状态查询</h2><p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 1000 个；核销失败不消耗 CDK。</p>
-  <form method="post" class="form batch-check-form"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="check"><textarea name="proxy_codes" rows="5" required>{{ status_query_input or '' }}</textarea><button type="submit">批量查询</button></form>
-  {% if status_results %}<div class="table-wrap"><table><thead><tr><th>#</th><th>CDK</th><th>卡密状态</th><th>最近订单</th><th>用户提示</th></tr></thead><tbody>{% for item in status_results %}<tr><td>{{ loop.index }}</td><td class="mono">{{ item.proxy_code }}</td><td>{{ code_status_text.get(item.code_status, item.code_status) }}</td><td>{{ task_status_text.get(item.task_status, item.task_status) if item.task_status else '-' }}</td><td><span class="batch-message {{ item.type }}">{{ item.message }}</span></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+
+  <style>
+  .product-switcher { margin: 18px 0; }
+  .product-switcher-title { font-weight: 700; margin-bottom: 10px; }
+  .product-option { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 120px; padding: 12px 18px; margin-right: 10px; margin-bottom: 8px; border: 1px solid rgba(0, 0, 0, 0.18); border-radius: 8px; cursor: pointer; font-weight: 700; background: #fff; }
+  .product-option.active { border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10); }
+  .product-option input { display: none; }
+  </style>
+
+  <script>
+    function applyProduct(input) {
+      document.getElementById('productGuideText').textContent = input.dataset.guidance;
+      document.getElementById('tokenTextarea').placeholder = input.dataset.placeholder;
+      document.getElementById('selectedProductId').value = input.value;
+      document.querySelectorAll('[data-product-option]').forEach(option => option.classList.toggle('active', option.dataset.productOption === input.value));
+    }
+    document.querySelectorAll('input[name="product_choice_ui"]').forEach(input => input.addEventListener('change', event => applyProduct(event.target)));
+  </script>
 </section>
-<style>
-.product-options { display: flex; flex-wrap: wrap; gap: 10px; }
-.product-option { display: inline-flex; align-items: center; min-width: 140px; padding: 12px 16px; border: 1px solid rgba(0,0,0,.18); border-radius: 8px; cursor: pointer; font-weight: 700; }
-.product-option.active { border-width: 2px; box-shadow: 0 2px 8px rgba(0,0,0,.10); }
-.product-option input { margin-right: 8px; }
-</style>
-<script>
-document.querySelectorAll('input[name="product_id"]').forEach(input => input.addEventListener('change', event => {
-  const selected = event.target;
-  document.getElementById('productName').textContent = selected.parentElement.textContent.trim();
-  document.getElementById('productGuidance').textContent = selected.dataset.guidance;
-  document.getElementById('tokenTextarea').placeholder = selected.dataset.placeholder;
-  document.querySelectorAll('[data-product-option]').forEach(option => option.classList.toggle('active', option.contains(selected)));
-}));
-</script>
 {% endblock %}
