@@ -481,10 +481,10 @@ def normalize_code(code: str) -> str:
 
 
 def parse_status_query_codes(raw_text: str) -> tuple[list[str], int]:
-    """Parse up to 1000 CDKs separated by commas, Chinese commas, spaces, tabs, or new lines.
+    """Parse up to 100 CDKs separated by commas, Chinese commas, spaces, tabs, or new lines.
 
     Returns a de-duplicated list that preserves input order, plus the raw parsed count
-    before de-duplication so the UI can enforce the advertised 1000-code limit.
+    before de-duplication so the UI can enforce the advertised 100-code limit.
     """
     raw_items = [item for item in re.split(r"[\s,，]+", raw_text or "") if item.strip()]
     codes: list[str] = []
@@ -565,14 +565,15 @@ def batch_public_status_results(conn: sqlite3.Connection, codes: list[str]) -> l
     return results
 
 
-def make_code(prefix: str = "CNVIP") -> str:
+def make_code(prefix: str = "JMM") -> str:
     alphabet = string.ascii_uppercase + string.digits
     part1 = "".join(secrets.choice(alphabet) for _ in range(4))
-    part2 = "".join(secrets.choice(alphabet) for _ in range(4))
-    return f"{prefix}-{part1}-{part2}"
+    part2 = "".join(secrets.choice(alphabet) for _ in range(5))
+    part3 = "".join(secrets.choice(alphabet) for _ in range(4))
+    return f"{prefix}-{part1}-{part2}-{part3}"
 
 
-def generate_unique_code(conn: sqlite3.Connection, prefix: str = "CNVIP") -> str:
+def generate_unique_code(conn: sqlite3.Connection, prefix: str = "JMM") -> str:
     for _ in range(50):
         code = make_code(prefix)
         exists = conn.execute("SELECT 1 FROM codes WHERE proxy_code = ?", (code,)).fetchone()
@@ -962,8 +963,8 @@ def redeem():
             query_codes, raw_count = parse_status_query_codes(status_query_input)
             if not query_codes:
                 result = {"type": "error", "message": "请输入至少一个兑换码。"}
-            elif raw_count > 1000:
-                result = {"type": "error", "message": "一次最多查询 1000 个兑换码，请减少数量后重试。"}
+            elif raw_count > 100:
+                result = {"type": "error", "message": "一次最多查询 100 个兑换码，请减少数量后重试。"}
             else:
                 with get_db() as conn:
                     status_results = batch_public_status_results(conn, query_codes)
@@ -1229,7 +1230,7 @@ def generate_codes():
     generated = []
     if request.method == "POST":
         partner = request.form.get("partner", "白先生").strip()
-        prefix = normalize_code(request.form.get("prefix", "CNVIP")) or "CNVIP"
+        prefix = normalize_code(request.form.get("prefix", "JMM")) or "JMM"
         status = request.form.get("status", "distributed")
         if status not in {"created", "distributed"}:
             status = "distributed"

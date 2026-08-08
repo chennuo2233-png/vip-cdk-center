@@ -208,7 +208,7 @@ copy E:\vip-cdk-center\vip-cdk-center\cdk_center.db E:\vip-cdk-center\vip-cdk-ce
 用户兑换页 `/redeem` 的“订单状态查询”支持一次输入多个 CDK：
 
 - 支持英文逗号 `,`、中文逗号 `，`、空格、Tab、换行分隔。
-- 一次最多输入 1000 个 CDK。
+- 一次最多输入 100 个 CDK。
 - 重复 CDK 会自动去重并按首次出现顺序展示。
 - 批量查询只展示用户可见状态；后台失败原因和员工备注不会出现在用户页面。
 
