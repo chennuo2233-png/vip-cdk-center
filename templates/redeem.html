@@ -10,7 +10,7 @@
     <div class="product-options">
       {% for product in products %}
       <label class="product-option {{ 'active' if loop.first else '' }}" data-product-option="{{ product.id }}">
-        <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" data-link1-label="{{ product.link1_label }}" data-link1-url="{{ product.link1_url }}" data-link2-label="{{ product.link2_label }}" data-link2-url="{{ product.link2_url }}" {% if loop.first %}checked{% endif %}>
+        <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" data-links='{{ product.links|tojson }}' {% if loop.first %}checked{% endif %}>
         <span>{{ product.name }}</span>
       </label>
       {% endfor %}
@@ -27,10 +27,7 @@
       <div>
         <h2>输入相关信息</h2>
         <p id="productGuideText" style="white-space: pre-line;">{{ products[0].guidance }}</p>
-        <div id="stepButtons" class="step-buttons">
-          <a id="step2Link1" class="button secondary" href="{{ products[0].link1_url }}" target="_blank" rel="noopener noreferrer" {% if not products[0].link1_url or not products[0].link1_label %}hidden{% endif %}>{{ products[0].link1_label }}</a>
-          <a id="step2Link2" class="button secondary" href="{{ products[0].link2_url }}" target="_blank" rel="noopener noreferrer" {% if not products[0].link2_url or not products[0].link2_label %}hidden{% endif %}>{{ products[0].link2_label }}</a>
-        </div>
+        <div id="stepButtons" class="step-buttons"></div>
       </div>
     </div>
     <div class="step-item"><div class="step-num">3</div><div><h2>提交任务</h2><p style="white-space: pre-line;">{{ settings.get('step3_text', '') }}</p></div></div>
@@ -75,17 +72,22 @@
       document.getElementById('productGuideText').textContent = input.dataset.guidance;
       document.getElementById('tokenTextarea').placeholder = input.dataset.placeholder;
       document.getElementById('selectedProductId').value = input.value;
-      const link1 = document.getElementById('step2Link1');
-      const link2 = document.getElementById('step2Link2');
-      link1.textContent = input.dataset.link1Label;
-      link1.href = input.dataset.link1Url;
-      link1.hidden = !input.dataset.link1Url || !input.dataset.link1Label;
-      link2.textContent = input.dataset.link2Label;
-      link2.href = input.dataset.link2Url;
-      link2.hidden = !input.dataset.link2Url || !input.dataset.link2Label;
+      const buttons = document.getElementById('stepButtons');
+      buttons.replaceChildren();
+      JSON.parse(input.dataset.links || '[]').forEach(link => {
+        const button = document.createElement('a');
+        button.className = 'button secondary';
+        button.href = link.url;
+        button.target = '_blank';
+        button.rel = 'noopener noreferrer';
+        button.textContent = link.label;
+        buttons.appendChild(button);
+      });
       document.querySelectorAll('[data-product-option]').forEach(option => option.classList.toggle('active', option.dataset.productOption === input.value));
     }
     document.querySelectorAll('input[name="product_choice_ui"]').forEach(input => input.addEventListener('change', event => applyProduct(event.target)));
+    const initialProduct = document.querySelector('input[name="product_choice_ui"]:checked');
+    if (initialProduct) applyProduct(initialProduct);
   </script>
 </section>
 {% endblock %}

@@ -180,6 +180,19 @@ def create_tables(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS product_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            url TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(product_id) REFERENCES products(id)
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -239,6 +252,7 @@ def create_tables(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON redemption_tasks(assigned_to)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_claimed_by ON redemption_tasks(claimed_by)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_product_id ON redemption_tasks(product_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_product_links_product_id ON product_links(product_id, sort_order, id)")
 
     # Seed the categories that were previously hard-coded into the redeem page.
     if not conn.execute("SELECT 1 FROM products LIMIT 1").fetchone():
@@ -279,6 +293,23 @@ def create_tables(conn: sqlite3.Connection) -> None:
         """UPDATE products SET link1_label = ?, link1_url = ?, link2_label = ?, link2_url = ?
            WHERE name = 'Claude Max代充值/成品号' AND link1_url = '' AND link2_url = ''""",
         (STEP2_LOGIN_LABEL, STEP2_LOGIN_URL, STEP2_COPY_LABEL, STEP2_COPY_URL),
+    )
+    # Migrate the previous two fixed link slots into the new unlimited link list once.
+    conn.execute(
+        """
+        INSERT INTO product_links (product_id, label, url, sort_order)
+        SELECT id, link1_label, link1_url, 10 FROM products
+        WHERE TRIM(link1_label) != '' AND TRIM(link1_url) != ''
+          AND NOT EXISTS (SELECT 1 FROM product_links pl WHERE pl.product_id = products.id AND pl.label = products.link1_label AND pl.url = products.link1_url)
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO product_links (product_id, label, url, sort_order)
+        SELECT id, link2_label, link2_url, 20 FROM products
+        WHERE TRIM(link2_label) != '' AND TRIM(link2_url) != ''
+          AND NOT EXISTS (SELECT 1 FROM product_links pl WHERE pl.product_id = products.id AND pl.label = products.link2_label AND pl.url = products.link2_url)
+        """
     )
 
     # V2.5: preserve ownership for previously assigned active tasks when possible.
@@ -550,14 +581,34 @@ def generate_unique_code(conn: sqlite3.Connection, prefix: str = "CNVIP") -> str
     raise RuntimeError("生成兑换码失败，请重试")
 
 
-def active_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return conn.execute(
-        """
-        SELECT * FROM products
-        WHERE is_active = 1 AND COALESCE(is_deleted, 0) = 0
-        ORDER BY sort_order ASC, id ASC
-        """
-    ).fetchall()
+def products_with_links(conn: sqlite3.Connection, where_sql: str = "") -> list[dict]:
+    sql = "SELECT * FROM products"
+    if where_sql:
+        sql += " WHERE " + where_sql
+    sql += " ORDER BY sort_order ASC, id ASC"
+    products = [dict(row) for row in conn.execute(sql).fetchall()]
+    links = conn.execute("SELECT * FROM product_links ORDER BY product_id, sort_order ASC, id ASC").fetchall()
+    links_by_product: dict[int, list[dict]] = {}
+    for link in links:
+        links_by_product.setdefault(link["product_id"], []).append(dict(link))
+    for product in products:
+        product["links"] = links_by_product.get(product["id"], [])
+    return products
+
+
+def active_products(conn: sqlite3.Connection) -> list[dict]:
+    return products_with_links(conn, "is_active = 1 AND COALESCE(is_deleted, 0) = 0")
+
+
+def save_product_links(conn: sqlite3.Connection, product_id: int) -> None:
+    labels = request.form.getlist("link_label")
+    urls = request.form.getlist("link_url")
+    links = [(label.strip(), url.strip()) for label, url in zip(labels, urls) if label.strip() and url.strip()]
+    conn.execute("DELETE FROM product_links WHERE product_id = ?", (product_id,))
+    conn.executemany(
+        "INSERT INTO product_links (product_id, label, url, sort_order) VALUES (?, ?, ?, ?)",
+        [(product_id, label, url, index * 10) for index, (label, url) in enumerate(links, start=1)],
+    )
 
 
 def redeem_settings(conn: sqlite3.Connection) -> dict[str, str]:
@@ -1282,10 +1333,6 @@ def owner_products():
                 name = request.form.get("name", "").strip()
                 guidance = request.form.get("guidance", "").strip()
                 placeholder = request.form.get("input_placeholder", "").strip()
-                link1_label = request.form.get("link1_label", "").strip()
-                link1_url = request.form.get("link1_url", "").strip()
-                link2_label = request.form.get("link2_label", "").strip()
-                link2_url = request.form.get("link2_url", "").strip()
                 try:
                     sort_order = int(request.form.get("sort_order", "0") or 0)
                 except ValueError:
@@ -1294,11 +1341,11 @@ def owner_products():
                     flash("产品名称和用户说明不能为空。", "error")
                 else:
                     try:
-                        conn.execute(
-                            """INSERT INTO products (name, guidance, input_placeholder, link1_label, link1_url, link2_label, link2_url, sort_order)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (name, guidance, placeholder, link1_label, link1_url, link2_label, link2_url, sort_order),
+                        cur = conn.execute(
+                            "INSERT INTO products (name, guidance, input_placeholder, sort_order) VALUES (?, ?, ?, ?)",
+                            (name, guidance, placeholder, sort_order),
                         )
+                        save_product_links(conn, cur.lastrowid)
                         write_log(conn, "create_product", new_value=name)
                         conn.commit()
                         flash("产品类目已创建。", "success")
@@ -1313,10 +1360,6 @@ def owner_products():
                     name = request.form.get("name", "").strip()
                     guidance = request.form.get("guidance", "").strip()
                     placeholder = request.form.get("input_placeholder", "").strip()
-                    link1_label = request.form.get("link1_label", "").strip()
-                    link1_url = request.form.get("link1_url", "").strip()
-                    link2_label = request.form.get("link2_label", "").strip()
-                    link2_url = request.form.get("link2_url", "").strip()
                     try:
                         sort_order = int(request.form.get("sort_order", "0") or 0)
                     except ValueError:
@@ -1326,11 +1369,11 @@ def owner_products():
                     else:
                         try:
                             conn.execute(
-                                """UPDATE products SET name = ?, guidance = ?, input_placeholder = ?,
-                                   link1_label = ?, link1_url = ?, link2_label = ?, link2_url = ?, sort_order = ?,
+                                """UPDATE products SET name = ?, guidance = ?, input_placeholder = ?, sort_order = ?,
                                    updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
-                                (name, guidance, placeholder, link1_label, link1_url, link2_label, link2_url, sort_order, product_id),
+                                (name, guidance, placeholder, sort_order, product_id),
                             )
+                            save_product_links(conn, product_id)
                             write_log(conn, "update_product", old_value=product["name"], new_value=name)
                             conn.commit()
                             flash("产品类目已更新；历史订单仍保留提交时的产品信息。", "success")
@@ -1350,7 +1393,7 @@ def owner_products():
         return redirect(url_for("owner_products"))
 
     with get_db() as conn:
-        products = conn.execute("SELECT * FROM products WHERE COALESCE(is_deleted, 0) = 0 ORDER BY sort_order ASC, id ASC").fetchall()
+        products = products_with_links(conn, "COALESCE(is_deleted, 0) = 0")
     return render_template("products.html", products=products)
 
 

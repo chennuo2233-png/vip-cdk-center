@@ -10,10 +10,8 @@
     <label>产品名称</label><input name="name" required placeholder="例如 Claude Pro 代充值">
     <label>用户说明</label><textarea name="guidance" rows="4" required placeholder="说明用户需要提供什么信息、注意事项和处理时间。"></textarea>
     <label>填写框提示（可选）</label><textarea name="input_placeholder" rows="3" placeholder="展示在用户输入信息的文本框内。"></textarea>
-    <label>外链按钮 1 名称（可选）</label><input name="link1_label" placeholder="例如：打开登录页面">
-    <label>外链按钮 1 网址（可选）</label><input name="link1_url" type="url" placeholder="https://example.com/login">
-    <label>外链按钮 2 名称（可选）</label><input name="link2_label" placeholder="例如：复制相关内容">
-    <label>外链按钮 2 网址（可选）</label><input name="link2_url" type="url" placeholder="https://example.com/help">
+    <label>产品外链按钮（可选）</label>
+    <div data-links-editor><div class="link-row"><input name="link_label" placeholder="按钮名称，例如：打开登录页面"><input name="link_url" type="url" placeholder="https://example.com/login"><button type="button" class="secondary" data-remove-link>删除</button></div><button type="button" class="secondary" data-add-link>+ 新增外链按钮</button></div>
     <label>排序（数字小的靠前）</label><input type="number" name="sort_order" value="0">
     <button type="submit">新增产品类目</button>
   </form>
@@ -29,10 +27,11 @@
       <label>产品名称</label><input name="name" value="{{ product.name }}" required>
       <label>用户说明</label><textarea name="guidance" rows="4" required>{{ product.guidance }}</textarea>
       <label>填写框提示（可选）</label><textarea name="input_placeholder" rows="3">{{ product.input_placeholder }}</textarea>
-      <label>外链按钮 1 名称（可选）</label><input name="link1_label" value="{{ product.link1_label }}">
-      <label>外链按钮 1 网址（可选）</label><input name="link1_url" type="url" value="{{ product.link1_url }}">
-      <label>外链按钮 2 名称（可选）</label><input name="link2_label" value="{{ product.link2_label }}">
-      <label>外链按钮 2 网址（可选）</label><input name="link2_url" type="url" value="{{ product.link2_url }}">
+      <label>产品外链按钮（可选）</label>
+      <div data-links-editor>
+        {% for link in product.links %}<div class="link-row"><input name="link_label" value="{{ link.label }}" placeholder="按钮名称"><input name="link_url" type="url" value="{{ link.url }}" placeholder="https://example.com/"><button type="button" class="secondary" data-remove-link>删除</button></div>{% else %}<div class="link-row"><input name="link_label" placeholder="按钮名称"><input name="link_url" type="url" placeholder="https://example.com/"><button type="button" class="secondary" data-remove-link>删除</button></div>{% endfor %}
+        <button type="button" class="secondary" data-add-link>+ 新增外链按钮</button>
+      </div>
       <label>排序</label><input type="number" name="sort_order" value="{{ product.sort_order }}">
       <button type="submit">保存修改</button>
     </form>
@@ -43,4 +42,10 @@
   </details>
   {% else %}<div class="empty">暂无产品类目。请先新增一个产品。</div>{% endfor %}
 </section>
+<script>
+document.querySelectorAll('[data-links-editor]').forEach(editor => {
+  const makeRow = () => { const row = document.createElement('div'); row.className = 'link-row'; row.innerHTML = '<input name="link_label" placeholder="按钮名称"><input name="link_url" type="url" placeholder="https://example.com/"><button type="button" class="secondary" data-remove-link>删除</button>'; return row; };
+  editor.addEventListener('click', event => { if (event.target.matches('[data-add-link]')) editor.insertBefore(makeRow(), event.target); if (event.target.matches('[data-remove-link]')) event.target.closest('.link-row').remove(); });
+});
+</script>
 {% endblock %}
