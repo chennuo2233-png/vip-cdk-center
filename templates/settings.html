@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set title = '页面文案' %}
+{% block content %}
+<section class="card narrow">
+  <h1>兑换页全局文案</h1>
+  <p class="muted">这里编辑的是所有产品共用的文案；每个产品各自的资料要求，请在“产品类目”中编辑。</p>
+  <form method="post" class="form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label>顶部处理说明</label>
+    <textarea name="redeem_notice" rows="4" required>{{ settings.get('redeem_notice', '') }}</textarea>
+    <label>第 3 步：提交任务说明</label>
+    <textarea name="step3_text" rows="4" required>{{ settings.get('step3_text', '') }}</textarea>
+    <button type="submit">保存文案</button>
+  </form>
+</section>
+{% endblock %}

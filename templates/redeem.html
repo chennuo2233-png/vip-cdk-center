@@ -18,10 +18,7 @@
     <p class="product-switcher-hint">==============</p>
   </div>
 
-  <p class="muted">
-    按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理【自然日北京时间11：30-17：10】。<br>
-    当天17：10之后提交的，需要等到第二天11：30查看处理结果。
-  </p>
+  <p class="muted" style="white-space: pre-line;">{{ settings.get('redeem_notice', '') }}</p>
 
   <div class="steps-flow" aria-label="兑换流程">
     <div class="step-item"><div class="step-num">1</div><div><h2>输入 CDK</h2><p>请输入 CDK（兑换码）</p></div></div>
@@ -36,7 +33,7 @@
         </div>
       </div>
     </div>
-    <div class="step-item"><div class="step-num">3</div><div><h2>提交任务</h2><p>提交后将进入排队处理，请耐心等待。平均处理时间为30分钟左右，泡杯茶，稍作休息。超过3个小时的意外情况或遇到其他任何问题带着CDK联系销售人员。</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div><h2>提交任务</h2><p style="white-space: pre-line;">{{ settings.get('step3_text', '') }}</p></div></div>
   </div>
   {% else %}
   <div class="alert error">当前没有可兑换的产品，请联系销售人员。</div>

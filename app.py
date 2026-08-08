@@ -167,6 +167,15 @@ def create_tables(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS site_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -245,6 +254,19 @@ def create_tables(conn: sqlite3.Connection) -> None:
                 ),
             ],
         )
+    conn.executemany(
+        "INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES (?, ?)",
+        [
+            (
+                "redeem_notice",
+                "按以下 3 个步骤提交信息。提交成功后，订单将被排队处理，由人工审核并处理【自然日北京时间11：30-17：10】。\n当天17：10之后提交的，需要等到第二天11：30查看处理结果。",
+            ),
+            (
+                "step3_text",
+                "提交后将进入排队处理，请耐心等待。平均处理时间为30分钟左右，泡杯茶，稍作休息。超过3个小时的意外情况或遇到其他任何问题带着CDK联系销售人员。",
+            ),
+        ],
+    )
 
     # V2.5: preserve ownership for previously assigned active tasks when possible.
     conn.execute("""
@@ -523,6 +545,11 @@ def active_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         ORDER BY sort_order ASC, id ASC
         """
     ).fetchall()
+
+
+def redeem_settings(conn: sqlite3.Connection) -> dict[str, str]:
+    rows = conn.execute("SELECT setting_key, setting_value FROM site_settings").fetchall()
+    return {row["setting_key"]: row["setting_value"] for row in rows}
 
 
 def current_user() -> Optional[sqlite3.Row]:
@@ -916,7 +943,8 @@ def redeem():
                                 result = {"type": "error", "message": "所选产品已下架，请重新选择。"}
                                 return render_template("redeem.html", result=result, code_row=code_row, latest_task=latest_task,
                                                        status_results=status_results, status_query_input=status_query_input,
-                                                       status_text=PUBLIC_STATUS_TEXT, products=active_products(conn))
+                                                       status_text=PUBLIC_STATUS_TEXT, products=active_products(conn),
+                                                       settings=redeem_settings(conn))
                             active_task = active_task_for_code(conn, code_row["id"])
                             if active_task:
                                 latest_task = active_task
@@ -942,6 +970,7 @@ def redeem():
 
     with get_db() as conn:
         products = active_products(conn)
+        settings = redeem_settings(conn)
     return render_template(
         "redeem.html",
         result=result,
@@ -951,6 +980,7 @@ def redeem():
         status_query_input=status_query_input,
         status_text=PUBLIC_STATUS_TEXT,
         products=products,
+        settings=settings,
     )
 
 
@@ -1299,6 +1329,30 @@ def owner_products():
     with get_db() as conn:
         products = conn.execute("SELECT * FROM products WHERE COALESCE(is_deleted, 0) = 0 ORDER BY sort_order ASC, id ASC").fetchall()
     return render_template("products.html", products=products)
+
+
+@app.route("/FenYi/settings", methods=["GET", "POST"])
+@owner_required
+def owner_settings():
+    if request.method == "POST":
+        redeem_notice = request.form.get("redeem_notice", "").strip()
+        step3_text = request.form.get("step3_text", "").strip()
+        if not redeem_notice or not step3_text:
+            flash("两段全局文案都不能为空。", "error")
+        else:
+            with get_db() as conn:
+                conn.executemany(
+                    """INSERT INTO site_settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+                       ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP""",
+                    [("redeem_notice", redeem_notice), ("step3_text", step3_text)],
+                )
+                write_log(conn, "update_redeem_settings", note="Updated redeem page global copy")
+                conn.commit()
+            flash("兑换页全局文案已更新。", "success")
+        return redirect(url_for("owner_settings"))
+    with get_db() as conn:
+        settings = redeem_settings(conn)
+    return render_template("settings.html", settings=settings)
 
 
 @app.route("/FenYi/team", methods=["GET", "POST"])
