@@ -7,6 +7,7 @@
       <div class="task-summary-main">
         <span class="task-id">#{{ t.id }}</span>
         <span class="mono">{{ t.proxy_code }}</span>
+        <span class="assigned-pill">{{ t.product_name }}</span>
         <span class="queue-age {% if t.queue_minutes and t.queue_minutes >= 30 and t.status in ['pending','assigned','processing'] %}overdue{% endif %}">
           {% if current_user.role == 'owner' %}
             已排队 {{ format_queue_age(t.queue_minutes, lang='zh') }}
@@ -37,6 +38,8 @@
     {% if is_hall %}
     <div class="task-grid hall-task-grid">
       <div>
+        <label class="mini-label">Product</label>
+        <div class="field-box">{{ t.product_name }}</div>
         <label class="mini-label">Task Hall</label>
         <div class="field-box">This order is waiting for a team lead to claim it. Token and processing actions are hidden until claimed.</div>
       </div>
@@ -58,6 +61,8 @@
     {% else %}
     <div class="task-grid">
       <div>
+        <label class="mini-label">Product</label>
+        <div class="field-box">{{ t.product_name }}</div>
         <label class="mini-label">Token</label>
         <div class="token-box">
           <textarea readonly>{{ t.token }}</textarea>

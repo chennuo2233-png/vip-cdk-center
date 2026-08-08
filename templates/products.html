@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% set title = '产品类目管理' %}
+{% block content %}
+<section class="card narrow">
+  <h1>产品类目管理</h1>
+  <p class="muted">这里的说明和填写提示会直接展示在用户兑换页。删除采用安全删除，历史订单会保留提交时的产品快照。</p>
+  <form method="post" class="form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="create">
+    <label>产品名称</label><input name="name" required placeholder="例如 Claude Pro 代充值">
+    <label>用户说明</label><textarea name="guidance" rows="4" required placeholder="说明用户需要提供什么信息、注意事项和处理时间。"></textarea>
+    <label>填写框提示（可选）</label><textarea name="input_placeholder" rows="3" placeholder="展示在用户输入信息的文本框内。"></textarea>
+    <label>排序（数字小的靠前）</label><input type="number" name="sort_order" value="0">
+    <button type="submit">新增产品类目</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>现有类目</h2>
+  {% for product in products %}
+  <details class="task-card task-collapse" {% if loop.first %}open{% endif %}>
+    <summary class="task-summary"><span class="task-summary-main"><strong>{{ product.name }}</strong></span><span class="badge {{ 'distributed' if product.is_active else 'disabled' }}">{{ '已上架' if product.is_active else '已下架' }}</span></summary>
+    <form method="post" class="form section-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="update"><input type="hidden" name="product_id" value="{{ product.id }}">
+      <label>产品名称</label><input name="name" value="{{ product.name }}" required>
+      <label>用户说明</label><textarea name="guidance" rows="4" required>{{ product.guidance }}</textarea>
+      <label>填写框提示（可选）</label><textarea name="input_placeholder" rows="3">{{ product.input_placeholder }}</textarea>
+      <label>排序</label><input type="number" name="sort_order" value="{{ product.sort_order }}">
+      <button type="submit">保存修改</button>
+    </form>
+    <div class="button-row">
+      <form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="toggle"><input type="hidden" name="product_id" value="{{ product.id }}"><button class="secondary" type="submit">{{ '下架' if product.is_active else '重新上架' }}</button></form>
+      <form method="post" onsubmit="return confirm('确认删除此产品？新用户将无法选择它，历史订单不受影响。');"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="product_id" value="{{ product.id }}"><button class="danger-btn" type="submit">删除</button></form>
+    </div>
+  </details>
+  {% else %}<div class="empty">暂无产品类目。请先新增一个产品。</div>{% endfor %}
+</section>
+{% endblock %}

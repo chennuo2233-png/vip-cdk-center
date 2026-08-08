@@ -124,6 +124,9 @@ def create_tables(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code_id INTEGER NOT NULL,
             proxy_code TEXT NOT NULL,
+            product_id INTEGER,
+            product_name TEXT NOT NULL DEFAULT '未分类产品',
+            product_guidance TEXT DEFAULT '',
             token TEXT NOT NULL,
             contact TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
@@ -143,6 +146,22 @@ def create_tables(conn: sqlite3.Connection) -> None:
             FOREIGN KEY(assigned_to) REFERENCES users(id),
             FOREIGN KEY(assigned_by) REFERENCES users(id),
             FOREIGN KEY(completed_by) REFERENCES users(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            guidance TEXT NOT NULL DEFAULT '',
+            input_placeholder TEXT NOT NULL DEFAULT '',
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            deleted_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
@@ -193,12 +212,39 @@ def create_tables(conn: sqlite3.Connection) -> None:
     add_column_if_missing(conn, "users", "deleted_at", "TEXT")
     add_column_if_missing(conn, "redemption_tasks", "claimed_by", "INTEGER")
     add_column_if_missing(conn, "redemption_tasks", "claimed_at", "TEXT")
+    add_column_if_missing(conn, "redemption_tasks", "product_id", "INTEGER")
+    add_column_if_missing(conn, "redemption_tasks", "product_name", "TEXT NOT NULL DEFAULT '未分类产品'")
+    add_column_if_missing(conn, "redemption_tasks", "product_guidance", "TEXT DEFAULT ''")
 
     conn.execute("CREATE INDEX IF NOT EXISTS idx_codes_status ON codes(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_code_id ON redemption_tasks(code_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON redemption_tasks(status, created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON redemption_tasks(assigned_to)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_claimed_by ON redemption_tasks(claimed_by)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_product_id ON redemption_tasks(product_id)")
+
+    # Seed the categories that were previously hard-coded into the redeem page.
+    if not conn.execute("SELECT 1 FROM products LIMIT 1").fetchone():
+        conn.executemany(
+            """
+            INSERT INTO products (name, guidance, input_placeholder, sort_order)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                (
+                    "Claude Max代充值/成品号",
+                    "你需要提供三个信息：【Claude登录邮箱】【Organization ID】【SessionKey】。如需成品号（已过 KYC），请在填写内容中留言并留下邮箱。",
+                    "【Claude登录邮箱】\n【Organization ID】\n【SessionKey】\n无特定格式要求，有序即可，人工处理。",
+                    10,
+                ),
+                (
+                    "Claude Team 席位邀请",
+                    "只需要提供 Claude 登录邮箱。仅邀请普通个人邮箱；公司邮箱、一次性邮箱等不合规邮箱可能被打回。人工邀请通常在 0.5~1 小时内处理。",
+                    "请输入 Claude 登录邮箱。\n请使用普通个人邮箱，不要使用公司邮箱或一次性邮箱。",
+                    20,
+                ),
+            ],
+        )
 
     # V2.5: preserve ownership for previously assigned active tasks when possible.
     conn.execute("""
@@ -467,6 +513,16 @@ def generate_unique_code(conn: sqlite3.Connection, prefix: str = "CNVIP") -> str
         if not exists:
             return code
     raise RuntimeError("生成兑换码失败，请重试")
+
+
+def active_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        """
+        SELECT * FROM products
+        WHERE is_active = 1 AND COALESCE(is_deleted, 0) = 0
+        ORDER BY sort_order ASC, id ASC
+        """
+    ).fetchall()
 
 
 def current_user() -> Optional[sqlite3.Row]:
@@ -805,6 +861,7 @@ def redeem():
     latest_task = None
     status_results = []
     status_query_input = ""
+    products = []
 
     if request.method == "POST":
         action = request.form.get("action", "redeem")
@@ -837,6 +894,7 @@ def redeem():
                     else:
                         token = request.form.get("token", "").strip() or request.form.get("student_id", "").strip()
                         contact = request.form.get("contact", "").strip()
+                        product_id = request.form.get("product_id", "").strip()
 
                         if code_row["status"] == "redeemed":
                             result = {"type": "info", "message": PUBLIC_STATUS_TEXT["redeemed"]}
@@ -847,7 +905,18 @@ def redeem():
                             }
                         elif not token:
                             result = {"type": "error", "message": "请输入Token。"}
+                        elif not product_id.isdigit():
+                            result = {"type": "error", "message": "请选择产品类目。"}
                         else:
+                            product = conn.execute(
+                                "SELECT * FROM products WHERE id = ? AND is_active = 1 AND COALESCE(is_deleted, 0) = 0",
+                                (int(product_id),),
+                            ).fetchone()
+                            if not product:
+                                result = {"type": "error", "message": "所选产品已下架，请重新选择。"}
+                                return render_template("redeem.html", result=result, code_row=code_row, latest_task=latest_task,
+                                                       status_results=status_results, status_query_input=status_query_input,
+                                                       status_text=PUBLIC_STATUS_TEXT, products=active_products(conn))
                             active_task = active_task_for_code(conn, code_row["id"])
                             if active_task:
                                 latest_task = active_task
@@ -858,10 +927,11 @@ def redeem():
                             else:
                                 conn.execute(
                                     """
-                                    INSERT INTO redemption_tasks (code_id, proxy_code, token, contact, status)
-                                    VALUES (?, ?, ?, ?, 'pending')
+                                    INSERT INTO redemption_tasks (
+                                        code_id, proxy_code, product_id, product_name, product_guidance, token, contact, status
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
                                     """,
-                                    (code_row["id"], code_row["proxy_code"], token, contact),
+                                    (code_row["id"], code_row["proxy_code"], product["id"], product["name"], product["guidance"], token, contact),
                                 )
                                 conn.commit()
                                 latest_task = latest_task_for_code(conn, code_row["id"])
@@ -870,6 +940,8 @@ def redeem():
                                     "message": "提交成功，当前状态：排队中。请保存兑换码，稍后可在本页查询状态。",
                                 }
 
+    with get_db() as conn:
+        products = active_products(conn)
     return render_template(
         "redeem.html",
         result=result,
@@ -878,6 +950,7 @@ def redeem():
         status_results=status_results,
         status_query_input=status_query_input,
         status_text=PUBLIC_STATUS_TEXT,
+        products=products,
     )
 
 
@@ -1154,6 +1227,78 @@ def stats():
             """
         ).fetchone()
     return render_template("stats.html", code_counts=code_counts, task_counts=task_counts, totals=totals)
+
+
+@app.route("/FenYi/products", methods=["GET", "POST"])
+@owner_required
+def owner_products():
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        with get_db() as conn:
+            if action == "create":
+                name = request.form.get("name", "").strip()
+                guidance = request.form.get("guidance", "").strip()
+                placeholder = request.form.get("input_placeholder", "").strip()
+                try:
+                    sort_order = int(request.form.get("sort_order", "0") or 0)
+                except ValueError:
+                    sort_order = 0
+                if not name or not guidance:
+                    flash("产品名称和用户说明不能为空。", "error")
+                else:
+                    try:
+                        conn.execute(
+                            "INSERT INTO products (name, guidance, input_placeholder, sort_order) VALUES (?, ?, ?, ?)",
+                            (name, guidance, placeholder, sort_order),
+                        )
+                        write_log(conn, "create_product", new_value=name)
+                        conn.commit()
+                        flash("产品类目已创建。", "success")
+                    except sqlite3.IntegrityError:
+                        flash("产品名称已存在。", "error")
+            else:
+                product_id = int(request.form.get("product_id", "0"))
+                product = conn.execute("SELECT * FROM products WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (product_id,)).fetchone()
+                if not product:
+                    abort(404)
+                if action == "update":
+                    name = request.form.get("name", "").strip()
+                    guidance = request.form.get("guidance", "").strip()
+                    placeholder = request.form.get("input_placeholder", "").strip()
+                    try:
+                        sort_order = int(request.form.get("sort_order", "0") or 0)
+                    except ValueError:
+                        sort_order = 0
+                    if not name or not guidance:
+                        flash("产品名称和用户说明不能为空。", "error")
+                    else:
+                        try:
+                            conn.execute(
+                                """UPDATE products SET name = ?, guidance = ?, input_placeholder = ?, sort_order = ?,
+                                   updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
+                                (name, guidance, placeholder, sort_order, product_id),
+                            )
+                            write_log(conn, "update_product", old_value=product["name"], new_value=name)
+                            conn.commit()
+                            flash("产品类目已更新；历史订单仍保留提交时的产品信息。", "success")
+                        except sqlite3.IntegrityError:
+                            flash("产品名称已存在。", "error")
+                elif action == "toggle":
+                    new_active = 0 if product["is_active"] else 1
+                    conn.execute("UPDATE products SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (new_active, product_id))
+                    write_log(conn, "toggle_product", old_value=product["name"], new_value="active" if new_active else "inactive")
+                    conn.commit()
+                    flash("产品已上架。" if new_active else "产品已下架，历史订单不受影响。", "success")
+                elif action == "delete":
+                    conn.execute("UPDATE products SET is_active = 0, is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?", (product_id,))
+                    write_log(conn, "delete_product", old_value=product["name"], note="Soft deleted; task snapshots retained")
+                    conn.commit()
+                    flash("产品已删除；历史订单仍保留原始产品信息。", "success")
+        return redirect(url_for("owner_products"))
+
+    with get_db() as conn:
+        products = conn.execute("SELECT * FROM products WHERE COALESCE(is_deleted, 0) = 0 ORDER BY sort_order ASC, id ASC").fetchall()
+    return render_template("products.html", products=products)
 
 
 @app.route("/FenYi/team", methods=["GET", "POST"])
