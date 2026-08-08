@@ -10,6 +10,10 @@
     <label>产品名称</label><input name="name" required placeholder="例如 Claude Pro 代充值">
     <label>用户说明</label><textarea name="guidance" rows="4" required placeholder="说明用户需要提供什么信息、注意事项和处理时间。"></textarea>
     <label>填写框提示（可选）</label><textarea name="input_placeholder" rows="3" placeholder="展示在用户输入信息的文本框内。"></textarea>
+    <label>外链按钮 1 名称（可选）</label><input name="link1_label" placeholder="例如：打开登录页面">
+    <label>外链按钮 1 网址（可选）</label><input name="link1_url" type="url" placeholder="https://example.com/login">
+    <label>外链按钮 2 名称（可选）</label><input name="link2_label" placeholder="例如：复制相关内容">
+    <label>外链按钮 2 网址（可选）</label><input name="link2_url" type="url" placeholder="https://example.com/help">
     <label>排序（数字小的靠前）</label><input type="number" name="sort_order" value="0">
     <button type="submit">新增产品类目</button>
   </form>
@@ -25,6 +29,10 @@
       <label>产品名称</label><input name="name" value="{{ product.name }}" required>
       <label>用户说明</label><textarea name="guidance" rows="4" required>{{ product.guidance }}</textarea>
       <label>填写框提示（可选）</label><textarea name="input_placeholder" rows="3">{{ product.input_placeholder }}</textarea>
+      <label>外链按钮 1 名称（可选）</label><input name="link1_label" value="{{ product.link1_label }}">
+      <label>外链按钮 1 网址（可选）</label><input name="link1_url" type="url" value="{{ product.link1_url }}">
+      <label>外链按钮 2 名称（可选）</label><input name="link2_label" value="{{ product.link2_label }}">
+      <label>外链按钮 2 网址（可选）</label><input name="link2_url" type="url" value="{{ product.link2_url }}">
       <label>排序</label><input type="number" name="sort_order" value="{{ product.sort_order }}">
       <button type="submit">保存修改</button>
     </form>

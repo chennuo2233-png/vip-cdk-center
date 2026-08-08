@@ -10,7 +10,7 @@
     <div class="product-options">
       {% for product in products %}
       <label class="product-option {{ 'active' if loop.first else '' }}" data-product-option="{{ product.id }}">
-        <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" {% if loop.first %}checked{% endif %}>
+        <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" data-link1-label="{{ product.link1_label }}" data-link1-url="{{ product.link1_url }}" data-link2-label="{{ product.link2_label }}" data-link2-url="{{ product.link2_url }}" {% if loop.first %}checked{% endif %}>
         <span>{{ product.name }}</span>
       </label>
       {% endfor %}
@@ -27,9 +27,9 @@
       <div>
         <h2>输入相关信息</h2>
         <p id="productGuideText" style="white-space: pre-line;">{{ products[0].guidance }}</p>
-        <div class="step-buttons">
-          <a id="step2LoginButton" class="button secondary" href="{{ step2_login_url }}" target="_blank" rel="noopener noreferrer">{{ step2_login_label }}</a>
-          <a id="step2CopyButton" class="button secondary" href="{{ step2_copy_url }}" target="_blank" rel="noopener noreferrer">{{ step2_copy_label }}</a>
+        <div id="stepButtons" class="step-buttons">
+          <a id="step2Link1" class="button secondary" href="{{ products[0].link1_url }}" target="_blank" rel="noopener noreferrer" {% if not products[0].link1_url or not products[0].link1_label %}hidden{% endif %}>{{ products[0].link1_label }}</a>
+          <a id="step2Link2" class="button secondary" href="{{ products[0].link2_url }}" target="_blank" rel="noopener noreferrer" {% if not products[0].link2_url or not products[0].link2_label %}hidden{% endif %}>{{ products[0].link2_label }}</a>
         </div>
       </div>
     </div>
@@ -75,6 +75,14 @@
       document.getElementById('productGuideText').textContent = input.dataset.guidance;
       document.getElementById('tokenTextarea').placeholder = input.dataset.placeholder;
       document.getElementById('selectedProductId').value = input.value;
+      const link1 = document.getElementById('step2Link1');
+      const link2 = document.getElementById('step2Link2');
+      link1.textContent = input.dataset.link1Label;
+      link1.href = input.dataset.link1Url;
+      link1.hidden = !input.dataset.link1Url || !input.dataset.link1Label;
+      link2.textContent = input.dataset.link2Label;
+      link2.href = input.dataset.link2Url;
+      link2.hidden = !input.dataset.link2Url || !input.dataset.link2Label;
       document.querySelectorAll('[data-product-option]').forEach(option => option.classList.toggle('active', option.dataset.productOption === input.value));
     }
     document.querySelectorAll('input[name="product_choice_ui"]').forEach(input => input.addEventListener('change', event => applyProduct(event.target)));

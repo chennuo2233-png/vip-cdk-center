@@ -156,6 +156,10 @@ def create_tables(conn: sqlite3.Connection) -> None:
             name TEXT UNIQUE NOT NULL,
             guidance TEXT NOT NULL DEFAULT '',
             input_placeholder TEXT NOT NULL DEFAULT '',
+            link1_label TEXT NOT NULL DEFAULT '',
+            link1_url TEXT NOT NULL DEFAULT '',
+            link2_label TEXT NOT NULL DEFAULT '',
+            link2_url TEXT NOT NULL DEFAULT '',
             sort_order INTEGER NOT NULL DEFAULT 0,
             is_active INTEGER NOT NULL DEFAULT 1,
             is_deleted INTEGER NOT NULL DEFAULT 0,
@@ -224,6 +228,10 @@ def create_tables(conn: sqlite3.Connection) -> None:
     add_column_if_missing(conn, "redemption_tasks", "product_id", "INTEGER")
     add_column_if_missing(conn, "redemption_tasks", "product_name", "TEXT NOT NULL DEFAULT '未分类产品'")
     add_column_if_missing(conn, "redemption_tasks", "product_guidance", "TEXT DEFAULT ''")
+    add_column_if_missing(conn, "products", "link1_label", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(conn, "products", "link1_url", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(conn, "products", "link2_label", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(conn, "products", "link2_url", "TEXT NOT NULL DEFAULT ''")
 
     conn.execute("CREATE INDEX IF NOT EXISTS idx_codes_status ON codes(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_code_id ON redemption_tasks(code_id)")
@@ -266,6 +274,11 @@ def create_tables(conn: sqlite3.Connection) -> None:
                 "提交后将进入排队处理，请耐心等待。平均处理时间为30分钟左右，泡杯茶，稍作休息。超过3个小时的意外情况或遇到其他任何问题带着CDK联系销售人员。",
             ),
         ],
+    )
+    conn.execute(
+        """UPDATE products SET link1_label = ?, link1_url = ?, link2_label = ?, link2_url = ?
+           WHERE name = 'Claude Max代充值/成品号' AND link1_url = '' AND link2_url = ''""",
+        (STEP2_LOGIN_LABEL, STEP2_LOGIN_URL, STEP2_COPY_LABEL, STEP2_COPY_URL),
     )
 
     # V2.5: preserve ownership for previously assigned active tasks when possible.
@@ -1269,6 +1282,10 @@ def owner_products():
                 name = request.form.get("name", "").strip()
                 guidance = request.form.get("guidance", "").strip()
                 placeholder = request.form.get("input_placeholder", "").strip()
+                link1_label = request.form.get("link1_label", "").strip()
+                link1_url = request.form.get("link1_url", "").strip()
+                link2_label = request.form.get("link2_label", "").strip()
+                link2_url = request.form.get("link2_url", "").strip()
                 try:
                     sort_order = int(request.form.get("sort_order", "0") or 0)
                 except ValueError:
@@ -1278,8 +1295,9 @@ def owner_products():
                 else:
                     try:
                         conn.execute(
-                            "INSERT INTO products (name, guidance, input_placeholder, sort_order) VALUES (?, ?, ?, ?)",
-                            (name, guidance, placeholder, sort_order),
+                            """INSERT INTO products (name, guidance, input_placeholder, link1_label, link1_url, link2_label, link2_url, sort_order)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (name, guidance, placeholder, link1_label, link1_url, link2_label, link2_url, sort_order),
                         )
                         write_log(conn, "create_product", new_value=name)
                         conn.commit()
@@ -1295,6 +1313,10 @@ def owner_products():
                     name = request.form.get("name", "").strip()
                     guidance = request.form.get("guidance", "").strip()
                     placeholder = request.form.get("input_placeholder", "").strip()
+                    link1_label = request.form.get("link1_label", "").strip()
+                    link1_url = request.form.get("link1_url", "").strip()
+                    link2_label = request.form.get("link2_label", "").strip()
+                    link2_url = request.form.get("link2_url", "").strip()
                     try:
                         sort_order = int(request.form.get("sort_order", "0") or 0)
                     except ValueError:
@@ -1304,9 +1326,10 @@ def owner_products():
                     else:
                         try:
                             conn.execute(
-                                """UPDATE products SET name = ?, guidance = ?, input_placeholder = ?, sort_order = ?,
+                                """UPDATE products SET name = ?, guidance = ?, input_placeholder = ?,
+                                   link1_label = ?, link1_url = ?, link2_label = ?, link2_url = ?, sort_order = ?,
                                    updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
-                                (name, guidance, placeholder, sort_order, product_id),
+                                (name, guidance, placeholder, link1_label, link1_url, link2_label, link2_url, sort_order, product_id),
                             )
                             write_log(conn, "update_product", old_value=product["name"], new_value=name)
                             conn.commit()
