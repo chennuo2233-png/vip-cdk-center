@@ -193,6 +193,19 @@ def create_tables(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS code_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code_id INTEGER NOT NULL,
+            author_type TEXT NOT NULL CHECK(author_type IN ('customer', 'staff')),
+            author_name TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(code_id) REFERENCES codes(id)
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -253,6 +266,7 @@ def create_tables(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_claimed_by ON redemption_tasks(claimed_by)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_product_id ON redemption_tasks(product_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_product_links_product_id ON product_links(product_id, sort_order, id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_code_messages_code_id ON code_messages(code_id, id)")
 
     # Seed the categories that were previously hard-coded into the redeem page.
     if not conn.execute("SELECT 1 FROM products LIMIT 1").fetchone():
@@ -714,6 +728,24 @@ def active_task_for_code(conn: sqlite3.Connection, code_id: int) -> Optional[sql
     ).fetchone()
 
 
+def code_messages_for_ids(conn: sqlite3.Connection, code_ids: Iterable[int]) -> dict[int, list[dict]]:
+    unique_ids = list(dict.fromkeys(code_ids))
+    messages_by_code = {code_id: [] for code_id in unique_ids}
+    for group in chunked(unique_ids):
+        placeholders = ",".join("?" for _ in group)
+        rows = conn.execute(
+            f"""
+            SELECT * FROM code_messages
+            WHERE code_id IN ({placeholders})
+            ORDER BY created_at ASC, id ASC
+            """,
+            group,
+        ).fetchall()
+        for row in rows:
+            messages_by_code.setdefault(row["code_id"], []).append(dict(row))
+    return messages_by_code
+
+
 def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> list[sqlite3.Row]:
     sql = """
         SELECT
@@ -750,7 +782,11 @@ def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> 
         LIMIT ?
     """
     with get_db() as conn:
-        return conn.execute(sql, (*params, limit)).fetchall()
+        tasks = [dict(row) for row in conn.execute(sql, (*params, limit)).fetchall()]
+        messages_by_code = code_messages_for_ids(conn, [task["code_id"] for task in tasks])
+    for task in tasks:
+        task["messages"] = messages_by_code.get(task["code_id"], [])
+    return tasks
 
 
 def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str, int]:
@@ -954,6 +990,7 @@ def redeem():
     status_results = []
     status_query_input = ""
     products = []
+    conversation_messages = []
 
     if request.method == "POST":
         action = request.form.get("action", "redeem")
@@ -968,11 +1005,37 @@ def redeem():
             else:
                 with get_db() as conn:
                     status_results = batch_public_status_results(conn, query_codes)
+                    if len(query_codes) == 1:
+                        code_row = conn.execute("SELECT * FROM codes WHERE proxy_code = ?", (query_codes[0],)).fetchone()
+                        if code_row:
+                            latest_task = latest_task_for_code(conn, code_row["id"])
+                            conversation_messages = code_messages_for_ids(conn, [code_row["id"]]).get(code_row["id"], [])
                 result = {
                     "type": "info",
                     "message": f"已查询 {len(status_results)} 个兑换码。"
                     + (f" 输入中有重复项，已自动去重。" if raw_count != len(query_codes) else ""),
                 }
+        elif action == "message":
+            proxy_code = normalize_code(request.form.get("proxy_code", ""))
+            body = request.form.get("message", "").strip()
+            if not proxy_code or not body:
+                result = {"type": "error", "message": "请输入兑换码和留言内容。"}
+            elif len(body) > 1000:
+                result = {"type": "error", "message": "每条留言最多 1000 个字符。"}
+            else:
+                with get_db() as conn:
+                    code_row = conn.execute("SELECT * FROM codes WHERE proxy_code = ?", (proxy_code,)).fetchone()
+                    if not code_row:
+                        result = {"type": "error", "message": "兑换码无效。"}
+                    else:
+                        conn.execute(
+                            "INSERT INTO code_messages (code_id, author_type, author_name, body) VALUES (?, 'customer', '顾客', ?)",
+                            (code_row["id"], body),
+                        )
+                        conn.commit()
+                        latest_task = latest_task_for_code(conn, code_row["id"])
+                        conversation_messages = code_messages_for_ids(conn, [code_row["id"]]).get(code_row["id"], [])
+                        result = {"type": "success", "message": "留言已提交，商家会在后台查看并回复。"}
         else:
             proxy_code = normalize_code(request.form.get("proxy_code", ""))
 
@@ -1009,7 +1072,7 @@ def redeem():
                                 return render_template("redeem.html", result=result, code_row=code_row, latest_task=latest_task,
                                                        status_results=status_results, status_query_input=status_query_input,
                                                        status_text=PUBLIC_STATUS_TEXT, products=active_products(conn),
-                                                       settings=redeem_settings(conn))
+                                                       settings=redeem_settings(conn), conversation_messages=conversation_messages)
                             active_task = active_task_for_code(conn, code_row["id"])
                             if active_task:
                                 latest_task = active_task
@@ -1046,6 +1109,7 @@ def redeem():
         status_text=PUBLIC_STATUS_TEXT,
         products=products,
         settings=settings,
+        conversation_messages=conversation_messages,
     )
 
 
@@ -1708,6 +1772,34 @@ def manage_team(owner_view: bool):
 
     template = "team.html" if owner_view else "ops_team.html"
     return render_template(template, users=users, workloads=workloads)
+
+
+@app.route("/ops/tasks/<int:task_id>/messages", methods=["POST"])
+@ops_required
+def add_staff_message(task_id: int):
+    body = request.form.get("message", "").strip()
+    if not body:
+        flash("Message cannot be empty.", "error")
+        return redirect(request.referrer or url_for("ops_tasks"))
+    if len(body) > 1000:
+        flash("Message must be 1000 characters or fewer.", "error")
+        return redirect(request.referrer or url_for("ops_tasks"))
+
+    user = current_user()
+    with get_db() as conn:
+        task = conn.execute("SELECT * FROM redemption_tasks WHERE id = ?", (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        if not can_operate_task(user, task):
+            abort(403)
+        conn.execute(
+            "INSERT INTO code_messages (code_id, author_type, author_name, body) VALUES (?, 'staff', ?, ?)",
+            (task["code_id"], user["display_name"], body),
+        )
+        write_log(conn, "add_code_message", task_id=task_id, code_id=task["code_id"], note="Public customer message")
+        conn.commit()
+    flash("Customer message sent.", "success")
+    return redirect(request.referrer or url_for("ops_tasks"))
 
 
 @app.route("/ops/tasks/<int:task_id>/claim", methods=["POST"])

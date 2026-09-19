@@ -88,6 +88,20 @@
         {% endif %}
       </div>
       <div class="actions-col">
+        <details class="task-messages">
+          <summary>Customer Messages ({{ t.messages|length }})</summary>
+          <div class="message-history">
+            {% for message in t.messages %}
+            <div class="message-item {{ message.author_type }}"><strong>{{ message.author_name }}</strong><span>{{ message.created_at }}</span><div>{{ message.body }}</div></div>
+            {% else %}<div class="empty">No customer messages.</div>{% endfor %}
+          </div>
+          <form method="post" action="{{ url_for('add_staff_message', task_id=t.id) }}" class="mini-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <textarea name="message" rows="3" maxlength="1000" placeholder="Public reply to customer" required></textarea>
+            <button type="submit">Reply</button>
+          </form>
+        </details>
+
         {% if current_user.role == 'owner' and t.status not in ['success','failed'] and (t.claimed_by or t.assigned_to) %}
         <form method="post" action="{{ url_for('release_task', task_id=t.id) }}" class="mini-form" onsubmit="return confirm('Release this task back to Task Hall?');">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

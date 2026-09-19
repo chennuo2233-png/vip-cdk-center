@@ -59,12 +59,29 @@
 
   {% if code_row %}<div class="status-box"><div>CDK：<strong>{{ code_row.proxy_code }}</strong></div><div>卡密状态：<strong>{{ code_status_text.get(code_row.status, code_row.status) }}</strong></div>{% if latest_task %}<div>最近订单：<strong>{{ status_text.get(latest_task.status, latest_task.status) }}</strong></div>{% endif %}</div>{% endif %}
 
+  {% if code_row %}
+  <section class="message-panel">
+    <h2>订单留言</h2>
+    <p class="muted small">可就此 CDK 与商家留言。请勿发送密码、Cookie、Token 或其他登录凭证。</p>
+    <div class="message-history">
+      {% for item in conversation_messages %}
+      <div class="message-item {{ item.author_type }}"><strong>{{ '商家' if item.author_type == 'staff' else '顾客' }}</strong><span>{{ item.created_at }}</span><div>{{ item.body }}</div></div>
+      {% else %}<div class="empty">暂无留言。</div>{% endfor %}
+    </div>
+    <form method="post" class="form message-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="message"><input type="hidden" name="proxy_code" value="{{ code_row.proxy_code }}">
+      <textarea name="message" rows="3" maxlength="1000" placeholder="请输入留言（最多 1000 字）" required></textarea><button type="submit">发送留言</button>
+    </form>
+  </section>
+  {% endif %}
+
   <style>
   .product-switcher { margin: 18px 0; }
   .product-switcher-title { font-weight: 700; margin-bottom: 10px; }
   .product-option { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 120px; padding: 12px 18px; margin-right: 10px; margin-bottom: 8px; border: 1px solid rgba(0, 0, 0, 0.18); border-radius: 8px; cursor: pointer; font-weight: 700; background: #fff; }
   .product-option.active { border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10); }
   .product-option input { display: none; }
+  .message-panel { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
   </style>
 
   <script>

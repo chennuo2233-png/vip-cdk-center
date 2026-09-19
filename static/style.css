@@ -467,3 +467,31 @@ th { background: #f9fafb; font-weight: 700; }
 .hall-task-grid {
   grid-template-columns: minmax(260px, 1.2fr) minmax(220px, .8fr) minmax(180px, .6fr);
 }
+
+/* Public CDK message history */
+.task-messages {
+  margin-bottom: 12px;
+}
+.task-messages summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.message-history {
+  margin: 10px 0;
+}
+.message-item {
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: #f6f7f9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message-item.staff {
+  background: #edf8f1;
+}
+.message-item span {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
