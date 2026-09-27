@@ -991,6 +991,7 @@ def redeem():
     status_query_input = ""
     products = []
     conversation_messages = []
+    conversation_code = None
 
     if request.method == "POST":
         action = request.form.get("action", "redeem")
@@ -1009,12 +1010,23 @@ def redeem():
                         code_row = conn.execute("SELECT * FROM codes WHERE proxy_code = ?", (query_codes[0],)).fetchone()
                         if code_row:
                             latest_task = latest_task_for_code(conn, code_row["id"])
-                            conversation_messages = code_messages_for_ids(conn, [code_row["id"]]).get(code_row["id"], [])
                 result = {
                     "type": "info",
                     "message": f"已查询 {len(status_results)} 个兑换码。"
                     + (f" 输入中有重复项，已自动去重。" if raw_count != len(query_codes) else ""),
                 }
+        elif action == "conversation":
+            proxy_code = normalize_code(request.form.get("proxy_code", ""))
+            if not proxy_code:
+                result = {"type": "error", "message": "请输入兑换码。"}
+            else:
+                with get_db() as conn:
+                    conversation_code = conn.execute("SELECT * FROM codes WHERE proxy_code = ?", (proxy_code,)).fetchone()
+                    if not conversation_code:
+                        result = {"type": "error", "message": "兑换码无效。"}
+                    else:
+                        conversation_messages = code_messages_for_ids(conn, [conversation_code["id"]]).get(conversation_code["id"], [])
+                        result = {"type": "info", "message": "已打开该订单的留言记录。"}
         elif action == "message":
             proxy_code = normalize_code(request.form.get("proxy_code", ""))
             body = request.form.get("message", "").strip()
@@ -1035,6 +1047,9 @@ def redeem():
                         conn.commit()
                         latest_task = latest_task_for_code(conn, code_row["id"])
                         conversation_messages = code_messages_for_ids(conn, [code_row["id"]]).get(code_row["id"], [])
+                        conversation_code = code_row
+                        code_row = None
+                        latest_task = None
                         result = {"type": "success", "message": "留言已提交，商家会在后台查看并回复。"}
         else:
             proxy_code = normalize_code(request.form.get("proxy_code", ""))
@@ -1072,7 +1087,8 @@ def redeem():
                                 return render_template("redeem.html", result=result, code_row=code_row, latest_task=latest_task,
                                                        status_results=status_results, status_query_input=status_query_input,
                                                        status_text=PUBLIC_STATUS_TEXT, products=active_products(conn),
-                                                       settings=redeem_settings(conn), conversation_messages=conversation_messages)
+                                                       settings=redeem_settings(conn), conversation_messages=conversation_messages,
+                                                       conversation_code=conversation_code)
                             active_task = active_task_for_code(conn, code_row["id"])
                             if active_task:
                                 latest_task = active_task
@@ -1110,6 +1126,7 @@ def redeem():
         products=products,
         settings=settings,
         conversation_messages=conversation_messages,
+        conversation_code=conversation_code,
     )
 
 

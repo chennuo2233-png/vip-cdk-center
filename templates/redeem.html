@@ -3,85 +3,86 @@
 {% block content %}
 <section class="card narrow redeem-card">
   <h1>CDK核销</h1>
-
-  {% if products %}
-  <div class="product-switcher" aria-label="产品选择">
-    <div class="product-switcher-title">⚠️请选择您购买的产品</div>
-    <div class="product-options">
-      {% for product in products %}
-      <label class="product-option {{ 'active' if loop.first else '' }}" data-product-option="{{ product.id }}">
-        <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" data-links='{{ product.links|tojson }}' {% if loop.first %}checked{% endif %}>
-        <span>{{ product.name }}</span>
-      </label>
-      {% endfor %}
-    </div>
-    <p class="product-switcher-hint">==============</p>
-  </div>
-
-  <p class="muted" style="white-space: pre-line;">{{ settings.get('redeem_notice', '') }}</p>
-
-  <div class="steps-flow" aria-label="兑换流程">
-    <div class="step-item"><div class="step-num">1</div><div><h2>输入 CDK</h2><p>请输入 CDK（兑换码）</p></div></div>
-    <div class="step-item">
-      <div class="step-num">2</div>
-      <div>
-        <h2>输入相关信息</h2>
-        <p id="productGuideText" style="white-space: pre-line;">{{ products[0].guidance }}</p>
-        <div id="stepButtons" class="step-buttons"></div>
-      </div>
-    </div>
-    <div class="step-item"><div class="step-num">3</div><div><h2>提交任务</h2><p style="white-space: pre-line;">{{ settings.get('step3_text', '') }}</p></div></div>
-  </div>
-  {% else %}
-  <div class="alert error">当前没有可兑换的产品，请联系销售人员。</div>
-  {% endif %}
-
   {% if result %}<div class="alert {{ result.type }}">{{ result.message }}</div>{% endif %}
 
-  {% if products %}
-  <form method="post" class="form redeem-form">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="redeem">
-    <input type="hidden" id="selectedProductId" name="product_id" value="{{ products[0].id }}">
-    <label>CDK（兑换码）</label><input name="proxy_code" placeholder="例如 JMM-K8Q4-M2PX7-A9DL" required>
-    <label>输入相关信息</label><textarea id="tokenTextarea" name="token" rows="6" placeholder="{{ products[0].input_placeholder }}" required></textarea>
-    <button type="submit">提交任务</button>
-  </form>
-  {% endif %}
-
-  <hr><h2>订单状态查询</h2>
-  <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 100 个；核销失败不消耗 CDK</p>
-  <form method="post" class="form batch-check-form">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="check">
-    <textarea name="proxy_codes" rows="5" placeholder="例如：&#10;JMM-K8Q4-M2PX7-A9DL, JMM-ABCD-12345-WXYZ&#10;JMM-WXYZ-56789-ABCD" required>{{ status_query_input or '' }}</textarea><button type="submit">批量查询</button>
-  </form>
-
-  {% if status_results %}<div class="batch-status-results"><div class="table-wrap"><table><thead><tr><th>#</th><th>CDK</th><th>卡密状态</th><th>最近订单</th><th>用户提示</th></tr></thead><tbody>{% for item in status_results %}<tr><td>{{ loop.index }}</td><td class="mono">{{ item.proxy_code }}</td><td>{{ code_status_text.get(item.code_status, item.code_status) }}</td><td>{{ task_status_text.get(item.task_status, item.task_status) if item.task_status else '-' }}</td><td><span class="batch-message {{ item.type }}">{{ item.message }}</span></td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
-
-  {% if code_row %}<div class="status-box"><div>CDK：<strong>{{ code_row.proxy_code }}</strong></div><div>卡密状态：<strong>{{ code_status_text.get(code_row.status, code_row.status) }}</strong></div>{% if latest_task %}<div>最近订单：<strong>{{ status_text.get(latest_task.status, latest_task.status) }}</strong></div>{% endif %}</div>{% endif %}
-
-  {% if code_row %}
-  <section class="message-panel">
-    <h2>订单留言</h2>
-    <p class="muted small">可就此 CDK 与商家留言。请勿发送密码、Cookie、Token 或其他登录凭证。</p>
-    <div class="message-history">
-      {% for item in conversation_messages %}
-      <div class="message-item {{ item.author_type }}"><strong>{{ '商家' if item.author_type == 'staff' else '顾客' }}</strong><span>{{ item.created_at }}</span><div>{{ item.body }}</div></div>
-      {% else %}<div class="empty">暂无留言。</div>{% endfor %}
+  <section class="redeem-section guide-section">
+    <h2>兑换指引</h2>
+    {% if products %}
+    <div class="product-switcher" aria-label="产品选择">
+      <div class="product-switcher-title">⚠️请选择您购买的产品</div>
+      <div class="product-options">
+        {% for product in products %}
+        <label class="product-option {{ 'active' if loop.first else '' }}" data-product-option="{{ product.id }}">
+          <input type="radio" name="product_choice_ui" value="{{ product.id }}" data-guidance="{{ product.guidance }}" data-placeholder="{{ product.input_placeholder }}" data-links='{{ product.links|tojson }}' {% if loop.first %}checked{% endif %}>
+          <span>{{ product.name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="product-switcher-hint">==============</p>
     </div>
-    <form method="post" class="form message-form">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="message"><input type="hidden" name="proxy_code" value="{{ code_row.proxy_code }}">
-      <textarea name="message" rows="3" maxlength="1000" placeholder="请输入留言（最多 1000 字）" required></textarea><button type="submit">发送留言</button>
+
+    <p class="muted" style="white-space: pre-line;">{{ settings.get('redeem_notice', '') }}</p>
+    <div class="steps-flow" aria-label="兑换流程">
+      <div class="step-item"><div class="step-num">1</div><div><h2>输入 CDK</h2><p>请输入 CDK（兑换码）</p></div></div>
+      <div class="step-item"><div class="step-num">2</div><div><h2>输入相关信息</h2><p id="productGuideText" style="white-space: pre-line;">{{ products[0].guidance }}</p><div id="stepButtons" class="step-buttons"></div></div></div>
+      <div class="step-item"><div class="step-num">3</div><div><h2>提交任务</h2><p style="white-space: pre-line;">{{ settings.get('step3_text', '') }}</p></div></div>
+    </div>
+
+    <form method="post" class="form redeem-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="redeem"><input type="hidden" id="selectedProductId" name="product_id" value="{{ products[0].id }}">
+      <label>CDK（兑换码）</label><input name="proxy_code" placeholder="例如 JMM-K8Q4-M2PX7-A9DL" required>
+      <label>输入相关信息</label><textarea id="tokenTextarea" name="token" rows="6" placeholder="{{ products[0].input_placeholder }}" required></textarea><button type="submit">提交任务</button>
     </form>
+    {% else %}<div class="alert error">当前没有可兑换的产品，请联系销售人员。</div>{% endif %}
   </section>
-  {% endif %}
+
+  <details class="customer-fold" {% if status_results or code_row %}open{% endif %}>
+    <summary><span>订单状态查询</span><small>点击展开</small></summary>
+    <div class="fold-content">
+      <p class="muted small">支持批量输入 CDK，可用逗号、空格或换行分隔，最多 100 个；核销失败不消耗 CDK。</p>
+      <form method="post" class="form batch-check-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="check">
+        <textarea name="proxy_codes" rows="5" placeholder="例如：&#10;JMM-K8Q4-M2PX7-A9DL, JMM-ABCD-12345-WXYZ&#10;JMM-WXYZ-56789-ABCD" required>{{ status_query_input or '' }}</textarea><button type="submit">查询订单状态</button>
+      </form>
+      {% if status_results %}<div class="batch-status-results"><div class="table-wrap"><table><thead><tr><th>#</th><th>CDK</th><th>卡密状态</th><th>最近订单</th><th>用户提示</th></tr></thead><tbody>{% for item in status_results %}<tr><td>{{ loop.index }}</td><td class="mono">{{ item.proxy_code }}</td><td>{{ code_status_text.get(item.code_status, item.code_status) }}</td><td>{{ task_status_text.get(item.task_status, item.task_status) if item.task_status else '-' }}</td><td><span class="batch-message {{ item.type }}">{{ item.message }}</span></td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+      {% if code_row %}<div class="status-box"><div>CDK：<strong>{{ code_row.proxy_code }}</strong></div><div>卡密状态：<strong>{{ code_status_text.get(code_row.status, code_row.status) }}</strong></div>{% if latest_task %}<div>最近订单：<strong>{{ status_text.get(latest_task.status, latest_task.status) }}</strong></div>{% endif %}</div>{% endif %}
+    </div>
+  </details>
+
+  <details class="customer-fold" {% if conversation_code %}open{% endif %}>
+    <summary><span>订单留言</span><small>输入 CDK 进入对话</small></summary>
+    <div class="fold-content">
+      <p class="muted small">输入 CDK 即可查看该订单的公开留言并与商家交流。请勿发送密码、Cookie、Token 或其他登录凭证。</p>
+      <form method="post" class="form message-lookup-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="conversation">
+        <label>CDK（兑换码）</label><input name="proxy_code" value="{{ conversation_code.proxy_code if conversation_code else '' }}" placeholder="例如 JMM-K8Q4-M2PX7-A9DL" required><button type="submit">进入订单对话</button>
+      </form>
+      {% if conversation_code %}
+      <div class="status-box"><div>当前订单：<strong>{{ conversation_code.proxy_code }}</strong></div><div>卡密状态：<strong>{{ code_status_text.get(conversation_code.status, conversation_code.status) }}</strong></div></div>
+      <div class="message-history">
+        {% for item in conversation_messages %}<div class="message-item {{ item.author_type }}"><strong>{{ '商家' if item.author_type == 'staff' else '顾客' }}</strong><span>{{ item.created_at }}</span><div>{{ item.body }}</div></div>{% else %}<div class="empty">暂无留言。你可以先向商家留言。</div>{% endfor %}
+      </div>
+      <form method="post" class="form message-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="message"><input type="hidden" name="proxy_code" value="{{ conversation_code.proxy_code }}">
+        <textarea name="message" rows="3" maxlength="1000" placeholder="请输入留言（最多 1000 字）" required></textarea><button type="submit">发送留言</button>
+      </form>
+      {% endif %}
+    </div>
+  </details>
 
   <style>
+  .redeem-section { padding-bottom: 20px; }
+  .guide-section > h2 { margin-top: 0; }
   .product-switcher { margin: 18px 0; }
   .product-switcher-title { font-weight: 700; margin-bottom: 10px; }
-  .product-option { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 120px; padding: 12px 18px; margin-right: 10px; margin-bottom: 8px; border: 1px solid rgba(0, 0, 0, 0.18); border-radius: 8px; cursor: pointer; font-weight: 700; background: #fff; }
-  .product-option.active { border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10); }
+  .product-option { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 120px; padding: 12px 18px; margin-right: 10px; margin-bottom: 8px; border: 1px solid rgba(0, 0, 0, .18); border-radius: 8px; cursor: pointer; font-weight: 700; background: #fff; }
+  .product-option.active { border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, .10); }
   .product-option input { display: none; }
-  .message-panel { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+  .customer-fold { margin-top: 14px; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
+  .customer-fold summary { display: flex; justify-content: space-between; align-items: center; padding: 15px 16px; cursor: pointer; font-size: 17px; font-weight: 800; }
+  .customer-fold summary small { color: #6b7280; font-weight: 500; font-size: 13px; }
+  .customer-fold[open] summary { border-bottom: 1px solid #e5e7eb; }
+  .fold-content { padding: 16px; }
   </style>
 
   <script>
@@ -89,22 +90,12 @@
       document.getElementById('productGuideText').textContent = input.dataset.guidance;
       document.getElementById('tokenTextarea').placeholder = input.dataset.placeholder;
       document.getElementById('selectedProductId').value = input.value;
-      const buttons = document.getElementById('stepButtons');
-      buttons.replaceChildren();
-      JSON.parse(input.dataset.links || '[]').forEach(link => {
-        const button = document.createElement('a');
-        button.className = 'button secondary';
-        button.href = link.url;
-        button.target = '_blank';
-        button.rel = 'noopener noreferrer';
-        button.textContent = link.label;
-        buttons.appendChild(button);
-      });
+      const buttons = document.getElementById('stepButtons'); buttons.replaceChildren();
+      JSON.parse(input.dataset.links || '[]').forEach(link => { const button = document.createElement('a'); button.className = 'button secondary'; button.href = link.url; button.target = '_blank'; button.rel = 'noopener noreferrer'; button.textContent = link.label; buttons.appendChild(button); });
       document.querySelectorAll('[data-product-option]').forEach(option => option.classList.toggle('active', option.dataset.productOption === input.value));
     }
     document.querySelectorAll('input[name="product_choice_ui"]').forEach(input => input.addEventListener('change', event => applyProduct(event.target)));
-    const initialProduct = document.querySelector('input[name="product_choice_ui"]:checked');
-    if (initialProduct) applyProduct(initialProduct);
+    const initialProduct = document.querySelector('input[name="product_choice_ui"]:checked'); if (initialProduct) applyProduct(initialProduct);
   </script>
 </section>
 {% endblock %}
