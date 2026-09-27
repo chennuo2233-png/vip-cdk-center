@@ -14,6 +14,7 @@ from flask import (
     Response,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -206,6 +207,18 @@ def create_tables(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS code_message_reads (
+            code_id INTEGER NOT NULL,
+            reader_key TEXT NOT NULL,
+            last_read_message_id INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (code_id, reader_key),
+            FOREIGN KEY(code_id) REFERENCES codes(id)
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -267,6 +280,7 @@ def create_tables(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_product_id ON redemption_tasks(product_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_product_links_product_id ON product_links(product_id, sort_order, id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_code_messages_code_id ON code_messages(code_id, id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_code_message_reads_reader ON code_message_reads(reader_key, code_id)")
 
     # Seed the categories that were previously hard-coded into the redeem page.
     if not conn.execute("SELECT 1 FROM products LIMIT 1").fetchone():
@@ -746,6 +760,53 @@ def code_messages_for_ids(conn: sqlite3.Connection, code_ids: Iterable[int]) -> 
     return messages_by_code
 
 
+def staff_reader_key(user_id: int) -> str:
+    return f"staff:{user_id}"
+
+
+def mark_code_messages_read(conn: sqlite3.Connection, code_id: int, reader_key: str) -> None:
+    latest_id = conn.execute(
+        "SELECT COALESCE(MAX(id), 0) AS latest_id FROM code_messages WHERE code_id = ?",
+        (code_id,),
+    ).fetchone()["latest_id"]
+    conn.execute(
+        """
+        INSERT INTO code_message_reads (code_id, reader_key, last_read_message_id, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(code_id, reader_key) DO UPDATE SET
+            last_read_message_id = excluded.last_read_message_id,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (code_id, reader_key, latest_id),
+    )
+
+
+def unread_customer_message_rows(conn: sqlite3.Connection, user: sqlite3.Row) -> list[sqlite3.Row]:
+    if user["role"] == "owner":
+        task_scope = "1 = 1"
+        params: list = []
+    elif user["role"] == "lead":
+        task_scope = "(t.claimed_by = ? OR t.assigned_to = ?)"
+        params = [user["id"], user["id"]]
+    else:
+        task_scope = "t.assigned_to = ?"
+        params = [user["id"]]
+    return conn.execute(
+        f"""
+        SELECT cm.code_id, MAX(cm.id) AS latest_message_id
+        FROM code_messages cm
+        JOIN redemption_tasks t ON t.code_id = cm.code_id
+        LEFT JOIN code_message_reads r
+            ON r.code_id = cm.code_id AND r.reader_key = ?
+        WHERE cm.author_type = 'customer'
+          AND cm.id > COALESCE(r.last_read_message_id, 0)
+          AND {task_scope}
+        GROUP BY cm.code_id
+        """,
+        (staff_reader_key(user["id"]), *params),
+    ).fetchall()
+
+
 def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> list[sqlite3.Row]:
     sql = """
         SELECT
@@ -784,8 +845,13 @@ def task_query(where_sql: str = "", params: Iterable = (), limit: int = 500) -> 
     with get_db() as conn:
         tasks = [dict(row) for row in conn.execute(sql, (*params, limit)).fetchall()]
         messages_by_code = code_messages_for_ids(conn, [task["code_id"] for task in tasks])
+        user = current_user()
+        unread_code_ids = set()
+        if user:
+            unread_code_ids = {row["code_id"] for row in unread_customer_message_rows(conn, user)}
     for task in tasks:
         task["messages"] = messages_by_code.get(task["code_id"], [])
+        task["has_unread_messages"] = task["code_id"] in unread_code_ids
     return tasks
 
 
@@ -1026,6 +1092,8 @@ def redeem():
                         result = {"type": "error", "message": "兑换码无效。"}
                     else:
                         conversation_messages = code_messages_for_ids(conn, [conversation_code["id"]]).get(conversation_code["id"], [])
+                        mark_code_messages_read(conn, conversation_code["id"], "customer")
+                        conn.commit()
                         result = {"type": "info", "message": "已打开该订单的留言记录。"}
         elif action == "message":
             proxy_code = normalize_code(request.form.get("proxy_code", ""))
@@ -1044,6 +1112,7 @@ def redeem():
                             "INSERT INTO code_messages (code_id, author_type, author_name, body) VALUES (?, 'customer', '顾客', ?)",
                             (code_row["id"], body),
                         )
+                        mark_code_messages_read(conn, code_row["id"], "customer")
                         conn.commit()
                         latest_task = latest_task_for_code(conn, code_row["id"])
                         conversation_messages = code_messages_for_ids(conn, [code_row["id"]]).get(code_row["id"], [])
@@ -1813,10 +1882,56 @@ def add_staff_message(task_id: int):
             "INSERT INTO code_messages (code_id, author_type, author_name, body) VALUES (?, 'staff', ?, ?)",
             (task["code_id"], user["display_name"], body),
         )
+        mark_code_messages_read(conn, task["code_id"], staff_reader_key(user["id"]))
         write_log(conn, "add_code_message", task_id=task_id, code_id=task["code_id"], note="Public customer message")
         conn.commit()
     flash("Customer message sent.", "success")
     return redirect(request.referrer or url_for("ops_tasks"))
+
+
+@app.route("/ops/tasks/<int:task_id>/messages/read", methods=["POST"])
+@ops_required
+def mark_staff_messages_read(task_id: int):
+    user = current_user()
+    with get_db() as conn:
+        task = conn.execute("SELECT * FROM redemption_tasks WHERE id = ?", (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        if not can_operate_task(user, task):
+            abort(403)
+        mark_code_messages_read(conn, task["code_id"], staff_reader_key(user["id"]))
+        conn.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/ops/messages/poll")
+@ops_required
+def poll_staff_messages():
+    user = current_user()
+    with get_db() as conn:
+        rows = unread_customer_message_rows(conn, user)
+    latest_id = max((row["latest_message_id"] for row in rows), default=0)
+    return jsonify({
+        "unread_count": len(rows),
+        "latest_message_id": latest_id,
+        "code_ids": [row["code_id"] for row in rows],
+    })
+
+
+@app.route("/redeem/messages/<proxy_code>/poll")
+def poll_customer_messages(proxy_code: str):
+    normalized_code = normalize_code(proxy_code)
+    with get_db() as conn:
+        code = conn.execute("SELECT id FROM codes WHERE proxy_code = ?", (normalized_code,)).fetchone()
+        if not code:
+            abort(404)
+        messages = code_messages_for_ids(conn, [code["id"]]).get(code["id"], [])
+    latest = messages[-1] if messages else None
+    return jsonify({
+        "messages": messages,
+        "latest_message_id": latest["id"] if latest else 0,
+        "latest_author_type": latest["author_type"] if latest else "",
+    })
 
 
 @app.route("/ops/tasks/<int:task_id>/claim", methods=["POST"])

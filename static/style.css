@@ -495,3 +495,13 @@ th { background: #f9fafb; font-weight: 700; }
   color: var(--muted);
   font-size: 12px;
 }
+.unread-message-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, .16);
+  vertical-align: middle;
+}

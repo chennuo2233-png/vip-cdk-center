@@ -2,11 +2,12 @@
 <div class="task-list compact-task-list">
   {% for t in tasks %}
   {% set is_hall = task_card_mode|default('work') == 'hall' %}
-  <details class="task-card task-collapse {{ 'hall-card' if is_hall else '' }}">
+  <details class="task-card task-collapse {{ 'hall-card' if is_hall else '' }}"{% if not is_hall and t.has_unread_messages %} data-message-read-url="{{ url_for('mark_staff_messages_read', task_id=t.id) }}" data-csrf-token="{{ csrf_token() }}"{% endif %}>
     <summary class="task-summary">
       <div class="task-summary-main">
         <span class="task-id">#{{ t.id }}</span>
         <span class="mono">{{ t.proxy_code }}</span>
+        {% if not is_hall and t.has_unread_messages %}<span class="unread-message-dot" title="New customer message"></span>{% endif %}
         <span class="assigned-pill">{{ t.product_name }}</span>
         <span class="queue-age {% if t.queue_minutes and t.queue_minutes >= 30 and t.status in ['pending','assigned','processing'] %}overdue{% endif %}">
           {% if current_user.role == 'owner' %}
@@ -89,7 +90,7 @@
       </div>
       <div class="actions-col">
         <details class="task-messages">
-          <summary>Customer Messages ({{ t.messages|length }})</summary>
+          <summary>Customer Messages ({{ t.messages|length }}){% if t.has_unread_messages %} <span class="unread-message-dot" title="New customer message"></span>{% endif %}</summary>
           <div class="message-history">
             {% for message in t.messages %}
             <div class="message-item {{ message.author_type }}"><strong>{{ message.author_name }}</strong><span>{{ message.created_at }}</span><div>{{ message.body }}</div></div>
@@ -160,3 +161,17 @@
 {% else %}
 <div class="empty">暂无任务 / No tasks</div>
 {% endif %}
+<script>
+window.enableTaskMessagePolling = true;
+document.querySelectorAll('[data-message-read-url]').forEach(card => {
+  card.addEventListener('toggle', () => {
+    if (!card.open || card.dataset.messagesRead) return;
+    card.dataset.messagesRead = 'true';
+    fetch(card.dataset.messageReadUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ _csrf_token: card.dataset.csrfToken })
+    }).then(() => card.querySelectorAll('.unread-message-dot').forEach(dot => dot.remove())).catch(() => {});
+  });
+});
+</script>
