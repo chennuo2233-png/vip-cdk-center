@@ -33,6 +33,14 @@ ACTIVE_TASK_STATUSES = {"pending", "assigned", "processing"}
 USER_ROLES = {"owner", "admin", "lead", "staff"}
 ADMIN_ROLES = {"owner", "admin"}
 ROLE_TEXT = {"owner": "主老板", "admin": "副管理员", "lead": "组长", "staff": "组员"}
+LOG_ACTION_TEXT = {
+    "generate_codes": "生成兑换码", "export_codes": "导出兑换码", "update_code": "更新卡密状态",
+    "create_product": "创建产品", "update_product": "编辑产品", "toggle_product": "上下架产品", "delete_product": "删除产品",
+    "update_redeem_settings": "更新兑换页文案", "create_user": "创建账号", "disable_user": "停用账号",
+    "enable_user": "启用账号", "delete_user": "删除账号", "reset_password": "重置密码",
+    "add_code_message": "发送顾客留言", "claim_task": "领取任务", "release_task": "释放任务",
+    "assign_task": "分配任务", "start_task": "开始处理", "mark_success": "标记处理成功", "mark_failed": "标记处理失败",
+}
 
 PUBLIC_STATUS_TEXT = {
     "created": "兑换码尚未上架。",
@@ -498,6 +506,7 @@ def inject_globals():
         "code_status_text": CODE_STATUS_TEXT,
         "task_status_text": TASK_STATUS_TEXT,
         "role_text": ROLE_TEXT,
+        "log_action_text": LOG_ACTION_TEXT,
         "fail_reasons": FAIL_REASONS,
         "step2_login_url": STEP2_LOGIN_URL,
         "step2_copy_url": STEP2_COPY_URL,
