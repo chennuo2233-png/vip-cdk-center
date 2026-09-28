@@ -8,12 +8,12 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">Redeem CDK 密钥核销</div>
+    <div class="brand">CDK 兑换与人工核销</div>
     <nav>
       <a href="{{ url_for('redeem') }}">用户兑换</a>
       {% if current_user %}
-        {% if current_user.role == 'owner' %}
-          <a href="{{ url_for('owner_dashboard') }}">老板后台</a>
+        {% if current_user.role in ['owner', 'admin'] %}
+          <a href="{{ url_for('owner_dashboard') }}">{{ '老板后台' if current_user.role == 'owner' else '副管理员后台' }}</a>
           <a href="{{ url_for('owner_tasks') }}">任务列表</a>
           <a href="{{ url_for('generate_codes') }}">生成码</a>
           <a href="{{ url_for('owner_codes') }}">卡密库</a>
@@ -24,11 +24,11 @@
           <a href="{{ url_for('owner_logs') }}">日志</a>
           <a href="{{ url_for('owner_logout') }}">退出</a>
         {% elif current_user.role in ['lead', 'staff'] %}
-          <a href="{{ url_for('ops_tasks') }}">Tasks</a>
+          <a href="{{ url_for('ops_tasks') }}">任务队列</a>
           {% if current_user.role == 'lead' %}
-            <a href="{{ url_for('ops_team') }}">Team</a>
+            <a href="{{ url_for('ops_team') }}">团队工作量</a>
           {% endif %}
-          <a href="{{ url_for('ops_logout') }}">Logout</a>
+          <a href="{{ url_for('ops_logout') }}">退出</a>
         {% endif %}
       {% endif %}
     </nav>

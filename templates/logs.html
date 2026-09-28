@@ -12,7 +12,7 @@
           <td>{{ l.id }}</td>
           <td>{{ l.created_at }}</td>
           <td>{{ l.display_name or l.username or '-' }}</td>
-          <td>{{ l.actor_role or '-' }}</td>
+          <td>{{ role_text.get(l.actor_role, l.actor_role) if l.actor_role else '-' }}</td>
           <td>{{ l.action }}</td>
           <td>{{ l.task_id or '' }}</td>
           <td>{{ l.code_id or '' }}</td>

@@ -5,7 +5,7 @@
   <div class="split-title">
     <div>
       <h1>老板后台</h1>
-      <p class="muted">效率优先：默认只显示当前排队中 / 已分配 / 处理中的任务。Success / Failed 会自动进入完成归档。</p>
+      <p class="muted">效率优先：默认只显示当前排队中、已分配、处理中的任务；处理成功或失败的任务会自动进入完成归档。</p>
     </div>
     <div class="button-row">
       <a class="button" href="{{ url_for('generate_codes') }}">生成兑换码</a>
@@ -14,9 +14,9 @@
   </div>
 
   <div class="stats-grid">
-    <div class="stat"><div class="stat-num">{{ task_counts.get('pending', 0) }}</div><div class="stat-label">Pending</div></div>
-    <div class="stat"><div class="stat-num">{{ task_counts.get('assigned', 0) }}</div><div class="stat-label">Assigned</div></div>
-    <div class="stat"><div class="stat-num">{{ task_counts.get('processing', 0) }}</div><div class="stat-label">Processing</div></div>
+    <div class="stat"><div class="stat-num">{{ task_counts.get('pending', 0) }}</div><div class="stat-label">待处理</div></div>
+    <div class="stat"><div class="stat-num">{{ task_counts.get('assigned', 0) }}</div><div class="stat-label">已分配</div></div>
+    <div class="stat"><div class="stat-num">{{ task_counts.get('processing', 0) }}</div><div class="stat-label">处理中</div></div>
     <div class="stat"><div class="stat-num">{{ code_counts.get('distributed', 0) }}</div><div class="stat-label">可兑换卡密</div></div>
     <div class="stat"><div class="stat-num">{{ code_counts.get('redeemed', 0) }}</div><div class="stat-label">已核销卡密</div></div>
   </div>

@@ -30,7 +30,9 @@ DB_PATH = Path(os.environ.get("DB_PATH", BASE_DIR / "cdk_center.db"))
 CODE_STATUSES = {"created", "distributed", "redeemed", "disabled"}
 TASK_STATUSES = {"pending", "assigned", "processing", "success", "failed"}
 ACTIVE_TASK_STATUSES = {"pending", "assigned", "processing"}
-USER_ROLES = {"owner", "lead", "staff"}
+USER_ROLES = {"owner", "admin", "lead", "staff"}
+ADMIN_ROLES = {"owner", "admin"}
+ROLE_TEXT = {"owner": "主老板", "admin": "副管理员", "lead": "组长", "staff": "组员"}
 
 PUBLIC_STATUS_TEXT = {
     "created": "兑换码尚未上架。",
@@ -52,19 +54,19 @@ CODE_STATUS_TEXT = {
 }
 
 TASK_STATUS_TEXT = {
-    "pending": "Pending",
-    "assigned": "Assigned",
-    "processing": "Processing",
-    "success": "Success",
-    "failed": "Failed",
+    "pending": "待处理",
+    "assigned": "已分配",
+    "processing": "处理中",
+    "success": "处理成功",
+    "failed": "处理失败",
 }
 
 FAIL_REASONS = [
-    "Invalid token",
-    "Expired token",
-    "Account already subscribed",
-    "Supplier failed",
-    "Other",
+    "令牌无效",
+    "令牌已过期",
+    "账号已有订阅",
+    "供应商处理失败",
+    "其他",
 ]
 
 app = Flask(__name__)
@@ -495,6 +497,7 @@ def inject_globals():
         "current_user": current_user(),
         "code_status_text": CODE_STATUS_TEXT,
         "task_status_text": TASK_STATUS_TEXT,
+        "role_text": ROLE_TEXT,
         "fail_reasons": FAIL_REASONS,
         "step2_login_url": STEP2_LOGIN_URL,
         "step2_copy_url": STEP2_COPY_URL,
@@ -670,7 +673,7 @@ def role_required(*roles: str):
         def wrapper(*args, **kwargs):
             user = current_user()
             if not user:
-                if "owner" in roles and len(roles) == 1:
+                if any(role in ADMIN_ROLES for role in roles):
                     return redirect(url_for("owner_login", next=request.path))
                 return redirect(url_for("ops_login", next=request.path))
             if user["role"] not in roles:
@@ -683,15 +686,15 @@ def role_required(*roles: str):
 
 
 def owner_required(fn):
-    return role_required("owner")(fn)
+    return role_required("owner", "admin")(fn)
 
 
 def ops_required(fn):
-    return role_required("owner", "lead", "staff")(fn)
+    return role_required("owner", "admin", "lead", "staff")(fn)
 
 
 def lead_or_owner_required(fn):
-    return role_required("owner", "lead")(fn)
+    return role_required("owner", "admin", "lead")(fn)
 
 
 def write_log(
@@ -782,7 +785,7 @@ def mark_code_messages_read(conn: sqlite3.Connection, code_id: int, reader_key: 
 
 
 def unread_customer_message_rows(conn: sqlite3.Connection, user: sqlite3.Row) -> list[sqlite3.Row]:
-    if user["role"] == "owner":
+    if user["role"] in ADMIN_ROLES:
         task_scope = "1 = 1"
         params: list = []
     elif user["role"] == "lead":
@@ -1036,7 +1039,7 @@ def active_staff_users(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def can_operate_task(user: sqlite3.Row, task: sqlite3.Row) -> bool:
-    if user["role"] == "owner":
+    if user["role"] in ADMIN_ROLES:
         return True
     if user["role"] == "lead":
         return task["claimed_by"] == user["id"] or task["assigned_to"] == user["id"]
@@ -1205,7 +1208,7 @@ def owner_login():
         username = request.form.get("username", OWNER_USERNAME).strip() or OWNER_USERNAME
         password = request.form.get("password", "")
         user = authenticate(username, password)
-        if user and user["role"] == "owner":
+        if user and user["role"] in ADMIN_ROLES:
             login_user(user)
             return redirect(request.args.get("next") or url_for("owner_dashboard"))
         flash("账号或密码不正确。", "error")
@@ -1218,10 +1221,10 @@ def ops_login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         user = authenticate(username, password)
-        if user and user["role"] in {"owner", "lead", "staff"}:
+        if user and user["role"] in {"owner", "admin", "lead", "staff"}:
             login_user(user)
             return redirect(request.args.get("next") or url_for("ops_tasks"))
-        flash("Invalid username or password.", "error")
+        flash("账号或密码不正确。", "error")
     return render_template("ops_login.html")
 
 
@@ -1627,7 +1630,7 @@ def ops_tasks():
         tasks = claimed_tasks
 
     with get_db() as conn:
-        staff = assignable_users(conn, user) if user["role"] in {"owner", "lead"} else []
+        staff = assignable_users(conn, user) if user["role"] in {"owner", "admin", "lead"} else []
         queue_counts = visible_task_counts(conn, user)
     return render_template(
         "ops_tasks.html",
@@ -1662,13 +1665,13 @@ def ops_tasks_archive():
         params.append(status)
     else:
         where.append("t.status IN ('success', 'failed')")
-    if q and user["role"] in {"owner", "lead"}:
+    if q and user["role"] in {"owner", "admin", "lead"}:
         where.append("(t.proxy_code LIKE ? OR t.token LIKE ? OR t.contact LIKE ?)")
         params.extend([f"%{q}%"] * 3)
 
     tasks = task_query(" AND ".join(where), params, limit=500)
     with get_db() as conn:
-        staff = assignable_users(conn, user) if user["role"] in {"owner", "lead"} else []
+        staff = assignable_users(conn, user) if user["role"] in {"owner", "admin", "lead"} else []
         queue_counts = visible_task_counts(conn, user)
     return render_template(
         "ops_tasks.html",
@@ -1728,6 +1731,16 @@ def ops_team_member(member_id: int):
     )
 
 
+def can_manage_account(actor: sqlite3.Row, target: sqlite3.Row) -> bool:
+    if target["role"] == "owner":
+        return False
+    if actor["role"] == "owner":
+        return True
+    if actor["role"] == "admin":
+        return target["role"] in {"lead", "staff"}
+    return target["role"] == "staff" and target["created_by"] == actor["id"]
+
+
 def manage_team(owner_view: bool):
     user = current_user()
     if request.method == "POST":
@@ -1740,13 +1753,14 @@ def manage_team(owner_view: bool):
                 role = request.form.get("role", "staff")
                 if user["role"] == "lead":
                     role = "staff"
-                if role not in {"lead", "staff"}:
-                    flash("Invalid role." if not owner_view else "角色不合法。", "error")
+                allowed_roles = {"lead", "staff"}
+                if user["role"] == "owner":
+                    allowed_roles.add("admin")
+                if role not in allowed_roles:
+                    flash("角色不合法。", "error")
                 elif len(username) < 3 or len(password) < 6:
                     flash(
-                        "Username must be at least 3 characters and password at least 6 characters."
-                        if not owner_view
-                        else "用户名至少 3 位，密码至少 6 位。",
+                        "用户名至少 3 位，密码至少 6 位。",
                         "error",
                     )
                 else:
@@ -1765,32 +1779,30 @@ def manage_team(owner_view: bool):
                             note=f"display_name={display_name}",
                         )
                         conn.commit()
-                        flash("User created." if not owner_view else "员工账号已创建。", "success")
+                        flash("账号已创建。", "success")
                     except sqlite3.IntegrityError:
-                        flash("Username already exists." if not owner_view else "用户名已存在。", "error")
+                        flash("用户名已存在。", "error")
 
             elif action in {"disable", "enable"}:
                 target_id = int(request.form.get("user_id", "0"))
                 target = conn.execute("SELECT * FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (target_id,)).fetchone()
                 if (
                     not target
-                    or target["role"] == "owner"
-                    or (user["role"] == "lead" and (target["role"] != "staff" or target["created_by"] != user["id"]))
+                    or not can_manage_account(user, target)
                 ):
                     abort(403)
                 new_active = 0 if action == "disable" else 1
                 conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_active, target_id))
                 write_log(conn, action + "_user", new_value=target["username"])
                 conn.commit()
-                flash("User updated." if not owner_view else "员工状态已更新。", "success")
+                flash("账号状态已更新。", "success")
 
             elif action == "delete":
                 target_id = int(request.form.get("user_id", "0"))
                 target = conn.execute("SELECT * FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (target_id,)).fetchone()
                 if (
                     not target
-                    or target["role"] == "owner"
-                    or (user["role"] == "lead" and (target["role"] != "staff" or target["created_by"] != user["id"]))
+                    or not can_manage_account(user, target)
                 ):
                     abort(403)
 
@@ -1823,7 +1835,7 @@ def manage_team(owner_view: bool):
                     note=f"display_name={target['display_name']}; active_tasks_returned_to_queue={reassigned}",
                 )
                 conn.commit()
-                flash("User deleted. Active tasks were returned to the queue." if not owner_view else "员工账号已删除；未完成任务已回到待分配队列。", "success")
+                flash("账号已删除；未完成任务已回到待分配队列。", "success")
 
             elif action == "reset_password":
                 target_id = int(request.form.get("user_id", "0"))
@@ -1831,12 +1843,11 @@ def manage_team(owner_view: bool):
                 target = conn.execute("SELECT * FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0", (target_id,)).fetchone()
                 if (
                     not target
-                    or target["role"] == "owner"
-                    or (user["role"] == "lead" and (target["role"] != "staff" or target["created_by"] != user["id"]))
+                    or not can_manage_account(user, target)
                 ):
                     abort(403)
                 if len(new_password) < 6:
-                    flash("Password must be at least 6 characters." if not owner_view else "密码至少 6 位。", "error")
+                    flash("密码至少 6 位。", "error")
                 else:
                     conn.execute(
                         "UPDATE users SET password_hash = ? WHERE id = ?",
@@ -1844,11 +1855,15 @@ def manage_team(owner_view: bool):
                     )
                     write_log(conn, "reset_password", new_value=target["username"])
                     conn.commit()
-                    flash("Password reset." if not owner_view else "密码已重置。", "success")
+                    flash("密码已重置。", "success")
 
     with get_db() as conn:
         if user["role"] == "owner":
             users = conn.execute("SELECT * FROM users WHERE COALESCE(is_deleted, 0) = 0 ORDER BY role, is_active DESC, id DESC").fetchall()
+        elif user["role"] == "admin":
+            users = conn.execute(
+                "SELECT * FROM users WHERE role IN ('lead', 'staff') AND COALESCE(is_deleted, 0) = 0 ORDER BY role, is_active DESC, id DESC"
+            ).fetchall()
         else:
             users = conn.execute(
                 "SELECT * FROM users WHERE role = 'staff' AND created_by = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY is_active DESC, id DESC",
@@ -1865,10 +1880,10 @@ def manage_team(owner_view: bool):
 def add_staff_message(task_id: int):
     body = request.form.get("message", "").strip()
     if not body:
-        flash("Message cannot be empty.", "error")
+        flash("留言不能为空。", "error")
         return redirect(request.referrer or url_for("ops_tasks"))
     if len(body) > 1000:
-        flash("Message must be 1000 characters or fewer.", "error")
+        flash("留言不能超过 1000 个字符。", "error")
         return redirect(request.referrer or url_for("ops_tasks"))
 
     user = current_user()
@@ -1885,7 +1900,7 @@ def add_staff_message(task_id: int):
         mark_code_messages_read(conn, task["code_id"], staff_reader_key(user["id"]))
         write_log(conn, "add_code_message", task_id=task_id, code_id=task["code_id"], note="Public customer message")
         conn.commit()
-    flash("Customer message sent.", "success")
+    flash("已发送给顾客。", "success")
     return redirect(request.referrer or url_for("ops_tasks"))
 
 
@@ -2159,8 +2174,8 @@ def mark_task_failed(task_id: int):
     fail_reason = request.form.get("fail_reason", "").strip()
     other_reason = request.form.get("other_reason", "").strip()
     note = request.form.get("worker_note", "").strip()
-    if fail_reason == "Other":
-        fail_reason = f"Other: {other_reason}" if other_reason else "Other"
+    if fail_reason == "其他":
+        fail_reason = f"其他：{other_reason}" if other_reason else "其他"
     if not fail_reason:
         flash("Failure reason is required.", "error")
         return redirect(request.referrer or url_for("ops_tasks"))

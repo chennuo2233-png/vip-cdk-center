@@ -7,9 +7,9 @@
       <h1>{{ '完成任务归档' if archive_mode else '当前任务队列' }}</h1>
       <p class="muted">
         {% if archive_mode %}
-          Success / Failed 任务收纳在这里，不干扰当前排队订单。
+          处理成功 / 处理失败的任务收纳在这里，不干扰当前排队订单。
         {% else %}
-          默认只显示 Pending / Assigned / Processing，最早提交的订单排在前面。
+          默认只显示待处理、已分配、处理中的任务，最早提交的订单排在前面。
         {% endif %}
       </p>
     </div>
@@ -23,9 +23,9 @@
   </div>
 
   <div class="stats-grid queue-stats">
-    <div class="stat"><div class="stat-num">{{ queue_counts.get('pending', 0) }}</div><div class="stat-label">Pending</div></div>
-    <div class="stat"><div class="stat-num">{{ queue_counts.get('assigned', 0) }}</div><div class="stat-label">Assigned</div></div>
-    <div class="stat"><div class="stat-num">{{ queue_counts.get('processing', 0) }}</div><div class="stat-label">Processing</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('pending', 0) }}</div><div class="stat-label">待处理</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('assigned', 0) }}</div><div class="stat-label">已分配</div></div>
+    <div class="stat"><div class="stat-num">{{ queue_counts.get('processing', 0) }}</div><div class="stat-label">处理中</div></div>
     <div class="stat"><div class="stat-num">{{ queue_counts.get('success_today', 0) }}</div><div class="stat-label">今日成功</div></div>
     <div class="stat"><div class="stat-num">{{ queue_counts.get('failed_today', 0) }}</div><div class="stat-label">今日失败</div></div>
   </div>

@@ -1,36 +1,8 @@
 {% extends "base.html" %}
-{% set title = member.display_name ~ ' Workload' %}
+{% set title = member.display_name ~ ' 的工作量' %}
 {% block content %}
-<section class="card">
-  <div class="split-title">
-    <div>
-      <h1>{{ member.display_name }}</h1>
-      <p class="muted"><span class="mono">{{ member.username }}</span> · {{ member.role }} · {{ 'Active' if member.is_active else 'Disabled' }}</p>
-    </div>
-    <div class="button-row">
-      <a class="button secondary" href="{{ url_for('ops_team') }}">Back to Team</a>
-      <a class="button secondary" href="{{ url_for('ops_tasks') }}">Task Queue</a>
-    </div>
-  </div>
-
-  <div class="stats-grid queue-stats">
-    <div class="stat"><div class="stat-num">{{ counts.current_queue }}</div><div class="stat-label">Current Queue</div></div>
-    <div class="stat"><div class="stat-num">{{ counts.assigned + counts.pending }}</div><div class="stat-label">Waiting</div></div>
-    <div class="stat"><div class="stat-num">{{ counts.processing }}</div><div class="stat-label">Processing</div></div>
-    <div class="stat"><div class="stat-num">{{ counts.success_today }}</div><div class="stat-label">Success Today</div></div>
-    <div class="stat"><div class="stat-num">{{ counts.failed_today }}</div><div class="stat-label">Failed Today</div></div>
-  </div>
-</section>
-
-<section class="card">
-  <h2>Current Queue</h2>
-  {% set tasks = current_tasks %}
-  {% include "task_cards.html" with context %}
-</section>
-
-<section class="card">
-  <h2>Completed Today</h2>
-  {% set tasks = completed_today %}
-  {% include "task_cards.html" with context %}
-</section>
+<section class="card"><div class="split-title"><div><h1>{{ member.display_name }}</h1><p class="muted"><span class="mono">{{ member.username }}</span> · {{ role_text.get(member.role, member.role) }} · {{ '启用' if member.is_active else '已停用' }}</p></div><div class="button-row"><a class="button secondary" href="{{ url_for('ops_team') }}">返回团队</a><a class="button secondary" href="{{ url_for('ops_tasks') }}">任务队列</a></div></div>
+<div class="stats-grid queue-stats"><div class="stat"><div class="stat-num">{{ counts.current_queue }}</div><div class="stat-label">当前队列</div></div><div class="stat"><div class="stat-num">{{ counts.assigned + counts.pending }}</div><div class="stat-label">等待处理</div></div><div class="stat"><div class="stat-num">{{ counts.processing }}</div><div class="stat-label">处理中</div></div><div class="stat"><div class="stat-num">{{ counts.success_today }}</div><div class="stat-label">今日成功</div></div><div class="stat"><div class="stat-num">{{ counts.failed_today }}</div><div class="stat-label">今日失败</div></div></div></section>
+<section class="card"><h2>当前队列</h2>{% set tasks = current_tasks %}{% include "task_cards.html" with context %}</section>
+<section class="card"><h2>今日完成</h2>{% set tasks = completed_today %}{% include "task_cards.html" with context %}</section>
 {% endblock %}

@@ -7,29 +7,29 @@
       <div class="task-summary-main">
         <span class="task-id">#{{ t.id }}</span>
         <span class="mono">{{ t.proxy_code }}</span>
-        {% if not is_hall and t.has_unread_messages %}<span class="unread-message-dot" title="New customer message"></span>{% endif %}
+        {% if not is_hall and t.has_unread_messages %}<span class="unread-message-dot" title="顾客有新留言"></span>{% endif %}
         <span class="assigned-pill">{{ t.product_name }}</span>
         <span class="queue-age {% if t.queue_minutes and t.queue_minutes >= 30 and t.status in ['pending','assigned','processing'] %}overdue{% endif %}">
-          {% if current_user.role == 'owner' %}
+          {% if current_user.role in ['owner', 'admin'] %}
             已排队 {{ format_queue_age(t.queue_minutes, lang='zh') }}
           {% else %}
-            Queued {{ format_queue_age(t.queue_minutes) }}
+            已排队 {{ format_queue_age(t.queue_minutes, lang='zh') }}
           {% endif %}
         </span>
       </div>
       <div class="task-summary-meta">
         {% if is_hall %}
-          <span class="badge pending">Hall</span>
-          <span class="assigned-pill">Unclaimed</span>
+          <span class="badge pending">任务大厅</span>
+          <span class="assigned-pill">未领取</span>
         {% else %}
           <span class="badge {{ t.status }}">{{ task_status_text.get(t.status, t.status) }}</span>
           <span class="assigned-pill">
             {% if t.assigned_name %}
               {{ t.assigned_name }}
             {% elif t.claimed_name %}
-              Claimed by {{ t.claimed_name }}
+              已领取：{{ t.claimed_name }}
             {% else %}
-              Unassigned
+              未分配
             {% endif %}
           </span>
         {% endif %}
@@ -39,22 +39,22 @@
     {% if is_hall %}
     <div class="task-grid hall-task-grid">
       <div>
-        <label class="mini-label">Product</label>
+        <label class="mini-label">产品</label>
         <div class="field-box">{{ t.product_name }}</div>
-        <label class="mini-label">Task Hall</label>
-        <div class="field-box">This order is waiting for a team lead to claim it. Token and processing actions are hidden until claimed.</div>
+        <label class="mini-label">任务大厅</label>
+        <div class="field-box">该订单正在等待组长领取。领取前不会显示 Token 和处理操作。</div>
       </div>
       <div>
-        <label class="mini-label">Created</label>
+        <label class="mini-label">创建时间</label>
         <div class="field-box">{{ t.created_at }}</div>
-        <label class="mini-label">CDK Status</label>
+        <label class="mini-label">CDK 状态</label>
         <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
       </div>
       <div class="actions-col">
-        {% if current_user.role in ['owner', 'lead'] %}
+        {% if current_user.role in ['owner', 'admin', 'lead'] %}
         <form method="post" action="{{ url_for('claim_task', task_id=t.id) }}" class="mini-form">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="success-btn">Claim</button>
+          <button type="submit" class="success-btn">领取任务</button>
         </form>
         {% endif %}
       </div>
@@ -62,95 +62,95 @@
     {% else %}
     <div class="task-grid">
       <div>
-        <label class="mini-label">Product</label>
+        <label class="mini-label">产品</label>
         <div class="field-box">{{ t.product_name }}</div>
-        <label class="mini-label">Token</label>
+        <label class="mini-label">顾客提交的信息</label>
         <div class="token-box">
           <textarea readonly>{{ t.token }}</textarea>
-          <button type="button" class="secondary" onclick="copyToken(this)">Copy</button>
+          <button type="button" class="secondary" onclick="copyToken(this)">复制</button>
         </div>
       </div>
       <div>
-        <label class="mini-label">Created</label>
+        <label class="mini-label">创建时间</label>
         <div class="field-box">{{ t.created_at }}</div>
-        <label class="mini-label">CDK Status</label>
+        <label class="mini-label">CDK 状态</label>
         <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
-        <label class="mini-label">Claimed By</label>
-        <div class="field-box">{{ t.claimed_name or 'Unclaimed' }}</div>
-        <label class="mini-label">Assigned To</label>
-        <div class="field-box">{{ t.assigned_name or 'Unassigned' }}</div>
-        {% if current_user.role == 'owner' and t.fail_reason %}
-          <label class="mini-label">Failure Reason</label>
+        <label class="mini-label">领取人</label>
+        <div class="field-box">{{ t.claimed_name or '未领取' }}</div>
+        <label class="mini-label">处理人</label>
+        <div class="field-box">{{ t.assigned_name or '未分配' }}</div>
+        {% if current_user.role in ['owner', 'admin'] and t.fail_reason %}
+          <label class="mini-label">失败原因</label>
           <div class="field-box danger-text">{{ t.fail_reason }}</div>
         {% endif %}
-        {% if current_user.role == 'owner' and t.worker_note %}
-          <label class="mini-label">Worker Note</label>
+        {% if current_user.role in ['owner', 'admin'] and t.worker_note %}
+          <label class="mini-label">员工内部备注</label>
           <div class="field-box">{{ t.worker_note }}</div>
         {% endif %}
       </div>
       <div class="actions-col">
         <details class="task-messages">
-          <summary>Customer Messages ({{ t.messages|length }}){% if t.has_unread_messages %} <span class="unread-message-dot" title="New customer message"></span>{% endif %}</summary>
+          <summary>顾客留言（{{ t.messages|length }}）{% if t.has_unread_messages %} <span class="unread-message-dot" title="顾客有新留言"></span>{% endif %}</summary>
           <div class="message-history">
             {% for message in t.messages %}
             <div class="message-item {{ message.author_type }}"><strong>{{ message.author_name }}</strong><span>{{ message.created_at }}</span><div>{{ message.body }}</div></div>
-            {% else %}<div class="empty">No customer messages.</div>{% endfor %}
+            {% else %}<div class="empty">暂无顾客留言。</div>{% endfor %}
           </div>
           <form method="post" action="{{ url_for('add_staff_message', task_id=t.id) }}" class="mini-form">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <textarea name="message" rows="3" maxlength="1000" placeholder="Public reply to customer" required></textarea>
-            <button type="submit">Reply</button>
+            <textarea name="message" rows="3" maxlength="1000" placeholder="公开回复顾客（最多 1000 字）" required></textarea>
+            <button type="submit">发送回复</button>
           </form>
         </details>
 
-        {% if current_user.role == 'owner' and t.status not in ['success','failed'] and (t.claimed_by or t.assigned_to) %}
-        <form method="post" action="{{ url_for('release_task', task_id=t.id) }}" class="mini-form" onsubmit="return confirm('Release this task back to Task Hall?');">
+        {% if current_user.role in ['owner', 'admin'] and t.status not in ['success','failed'] and (t.claimed_by or t.assigned_to) %}
+        <form method="post" action="{{ url_for('release_task', task_id=t.id) }}" class="mini-form" onsubmit="return confirm('确定将此任务释放回任务大厅吗？');">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="secondary">Release to Hall</button>
+          <button type="submit" class="secondary">释放回大厅</button>
         </form>
         {% endif %}
 
-        {% if current_user.role in ['owner', 'lead'] and t.status not in ['success','failed'] %}
+        {% if current_user.role in ['owner', 'admin', 'lead'] and t.status not in ['success','failed'] %}
         <form method="post" action="{{ url_for('assign_task', task_id=t.id) }}" class="mini-form">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <select name="assigned_to" required>
-            <option value="">Assign to...</option>
+            <option value="">分配给…</option>
             {% for u in staff %}
-              <option value="{{ u.id }}" {% if t.assigned_to == u.id %}selected{% endif %}>{{ u.display_name }} · {{ u.role }}</option>
+          <option value="{{ u.id }}" {% if t.assigned_to == u.id %}selected{% endif %}>{{ u.display_name }} · {{ role_text.get(u.role, u.role) }}</option>
             {% endfor %}
           </select>
-          <button type="submit">Assign</button>
+          <button type="submit">分配</button>
         </form>
         {% endif %}
 
         {% if t.status in ['pending','assigned'] %}
         <form method="post" action="{{ url_for('start_task', task_id=t.id) }}" class="mini-form">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="secondary">Start</button>
+          <button type="submit" class="secondary">开始处理</button>
         </form>
         {% endif %}
 
         {% if t.status not in ['success','failed'] %}
         <form method="post" action="{{ url_for('mark_task_success', task_id=t.id) }}" class="mini-form">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <input name="worker_note" placeholder="Private note, optional">
-          <button type="submit" class="success-btn">Success</button>
+          <input name="worker_note" placeholder="内部备注（可选）">
+          <button type="submit" class="success-btn">处理成功</button>
         </form>
 
         <form method="post" action="{{ url_for('mark_task_failed', task_id=t.id) }}" class="mini-form fail-form">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <select name="fail_reason" required>
-            <option value="">Failure reason...</option>
+            <option value="">请选择失败原因…</option>
             {% for reason in fail_reasons %}
               <option value="{{ reason }}">{{ reason }}</option>
             {% endfor %}
           </select>
-          <input name="other_reason" placeholder="Required if Other">
-          <input name="worker_note" placeholder="Private note, optional">
-          <button type="submit" class="danger-btn">Failed</button>
+          <input name="other_reason" placeholder="选择“其他”时必填">
+          <input name="worker_note" placeholder="内部备注（可选）">
+          <button type="submit" class="danger-btn">处理失败</button>
         </form>
         {% else %}
-          <div class="field-box muted">Completed at {{ t.completed_at or '-' }}</div>
+          <div class="field-box muted">完成时间：{{ t.completed_at or '-' }}</div>
         {% endif %}
       </div>
     </div>
@@ -159,7 +159,7 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="empty">暂无任务 / No tasks</div>
+<div class="empty">暂无任务</div>
 {% endif %}
 <script>
 window.enableTaskMessagePolling = true;
