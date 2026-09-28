@@ -5,9 +5,11 @@ import re
 import secrets
 import sqlite3
 import string
+from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 from typing import Iterable, Optional
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -26,6 +28,20 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("DB_PATH", BASE_DIR / "cdk_center.db"))
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def format_beijing_time(value) -> str:
+    """Render stored UTC timestamps in UTC+8 without changing historical data."""
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00").replace(" ", "T"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError):
+        return str(value)
 
 CODE_STATUSES = {"created", "distributed", "redeemed", "disabled"}
 TASK_STATUSES = {"pending", "assigned", "processing", "success", "failed"}
@@ -511,6 +527,7 @@ def inject_globals():
         "role_text": ROLE_TEXT,
         "log_action_text": LOG_ACTION_TEXT,
         "new_message_token": lambda: secrets.token_urlsafe(24),
+        "beijing_time": format_beijing_time,
         "fail_reasons": FAIL_REASONS,
         "step2_login_url": STEP2_LOGIN_URL,
         "step2_copy_url": STEP2_COPY_URL,
@@ -772,7 +789,9 @@ def code_messages_for_ids(conn: sqlite3.Connection, code_ids: Iterable[int]) -> 
             group,
         ).fetchall()
         for row in rows:
-            messages_by_code.setdefault(row["code_id"], []).append(dict(row))
+            message = dict(row)
+            message["display_time"] = format_beijing_time(message["created_at"])
+            messages_by_code.setdefault(row["code_id"], []).append(message)
     return messages_by_code
 
 
@@ -886,7 +905,7 @@ def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str
     if user["role"] == "staff":
         active_where = "status IN ('pending', 'assigned', 'processing') AND assigned_to = ?"
         active_params = [user["id"]]
-        done_where = "status IN ('success', 'failed') AND DATE(completed_at) = DATE('now') AND completed_by = ?"
+        done_where = "status IN ('success', 'failed') AND DATE(completed_at, '+8 hours') = DATE('now', '+8 hours') AND completed_by = ?"
         done_params = [user["id"]]
     elif user["role"] == "lead":
         counts["hall"] = conn.execute(
@@ -894,7 +913,7 @@ def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str
         ).fetchone()["count"]
         active_where = "status IN ('pending', 'assigned', 'processing') AND claimed_by = ?"
         active_params = [user["id"]]
-        done_where = "status IN ('success', 'failed') AND DATE(completed_at) = DATE('now') AND claimed_by = ?"
+        done_where = "status IN ('success', 'failed') AND DATE(completed_at, '+8 hours') = DATE('now', '+8 hours') AND claimed_by = ?"
         done_params = [user["id"]]
     else:
         counts["hall"] = conn.execute(
@@ -902,7 +921,7 @@ def visible_task_counts(conn: sqlite3.Connection, user: sqlite3.Row) -> dict[str
         ).fetchone()["count"]
         active_where = "status IN ('pending', 'assigned', 'processing')"
         active_params = []
-        done_where = "status IN ('success', 'failed') AND DATE(completed_at) = DATE('now')"
+        done_where = "status IN ('success', 'failed') AND DATE(completed_at, '+8 hours') = DATE('now', '+8 hours')"
         done_params = []
 
     active_rows = conn.execute(
@@ -961,14 +980,14 @@ def staff_workload_rows(conn: sqlite3.Connection, viewer: sqlite3.Row) -> list[d
         success_today = conn.execute(
             """
             SELECT COUNT(*) AS count FROM redemption_tasks
-            WHERE completed_by = ? AND status = 'success' AND DATE(completed_at) = DATE('now')
+        WHERE completed_by = ? AND status = 'success' AND DATE(completed_at, '+8 hours') = DATE('now', '+8 hours')
             """,
             (u["id"],),
         ).fetchone()["count"]
         failed_today = conn.execute(
             """
             SELECT COUNT(*) AS count FROM redemption_tasks
-            WHERE completed_by = ? AND status = 'failed' AND DATE(completed_at) = DATE('now')
+        WHERE completed_by = ? AND status = 'failed' AND DATE(completed_at, '+8 hours') = DATE('now', '+8 hours')
             """,
             (u["id"],),
         ).fetchone()["count"]
@@ -1003,7 +1022,7 @@ def member_workload_counts(conn: sqlite3.Connection, member_id: int) -> dict[str
         """
         SELECT status, COUNT(*) AS count
         FROM redemption_tasks
-        WHERE completed_by = ? AND status IN ('success', 'failed') AND DATE(completed_at) = DATE('now')
+        WHERE completed_by = ? AND status IN ('success', 'failed') AND DATE(completed_at, '+8 hours') = DATE('now', '+8 hours')
         GROUP BY status
         """,
         (member_id,),
@@ -1731,7 +1750,7 @@ def ops_team_member(member_id: int):
         limit=200,
     )
     completed_today = task_query(
-        "t.completed_by = ? AND t.status IN ('success', 'failed') AND DATE(t.completed_at) = DATE('now')",
+        "t.completed_by = ? AND t.status IN ('success', 'failed') AND DATE(t.completed_at, '+8 hours') = DATE('now', '+8 hours')",
         (member_id,),
         limit=200,
     )

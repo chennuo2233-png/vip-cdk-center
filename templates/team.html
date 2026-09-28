@@ -22,7 +22,7 @@
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>用户名</th><th>名称</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
     <tbody>{% for u in users %}<tr>
-      <td>{{ u.id }}</td><td class="mono">{{ u.username }}</td><td>{{ u.display_name }}</td><td>{{ role_text.get(u.role, u.role) }}</td><td>{{ '启用' if u.is_active else '禁用' }}</td><td>{{ u.last_login_at or '' }}</td>
+<td>{{ u.id }}</td><td class="mono">{{ u.username }}</td><td>{{ u.display_name }}</td><td>{{ role_text.get(u.role, u.role) }}</td><td>{{ '启用' if u.is_active else '禁用' }}</td><td>{{ beijing_time(u.last_login_at) }}</td>
       <td>{% if current_user.role == 'owner' or u.role not in ['owner', 'admin'] %}
         <form method="post" class="mini-form inline-actions"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="user_id" value="{{ u.id }}"><button name="action" value="{{ 'disable' if u.is_active else 'enable' }}" type="submit">{{ '禁用' if u.is_active else '启用' }}</button></form>
         <form method="post" class="mini-form inline-actions"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="user_id" value="{{ u.id }}"><input type="password" name="new_password" placeholder="新密码"><button name="action" value="reset_password" type="submit">重置密码</button></form>

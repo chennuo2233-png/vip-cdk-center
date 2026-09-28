@@ -32,8 +32,8 @@
           <td>{{ '%.2f'|format(c.partner_price or 0) }}</td>
           <td>{{ '%.2f'|format(c.supplier_cost or 0) }}</td>
           <td>{{ '%.2f'|format((c.partner_price or 0) - (c.supplier_cost or 0)) }}</td>
-          <td>{{ c.created_at }}</td>
-          <td>{{ c.redeemed_at or '' }}</td>
+        <td>{{ beijing_time(c.created_at) }}</td>
+        <td>{{ beijing_time(c.redeemed_at) }}</td>
           <td>
             {% if c.status != 'redeemed' %}
             <form method="post" action="{{ url_for('owner_update_code', code_id=c.id) }}" class="mini-form">

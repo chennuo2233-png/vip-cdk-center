@@ -46,7 +46,7 @@
       </div>
       <div>
         <label class="mini-label">创建时间</label>
-        <div class="field-box">{{ t.created_at }}</div>
+        <div class="field-box">{{ beijing_time(t.created_at) }}</div>
         <label class="mini-label">CDK 状态</label>
         <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
       </div>
@@ -72,7 +72,7 @@
       </div>
       <div>
         <label class="mini-label">创建时间</label>
-        <div class="field-box">{{ t.created_at }}</div>
+        <div class="field-box">{{ beijing_time(t.created_at) }}</div>
         <label class="mini-label">CDK 状态</label>
         <div class="field-box">{{ code_status_text.get(t.code_status, t.code_status) }}</div>
         <label class="mini-label">领取人</label>
@@ -93,7 +93,7 @@
           <summary>顾客留言（{{ t.messages|length }}）{% if t.has_unread_messages %} <span class="unread-message-dot" title="顾客有新留言"></span>{% endif %}</summary>
           <div class="message-history" data-message-history>
             {% for message in t.messages %}
-            <div class="message-item {{ message.author_type }}"><strong>{{ message.author_name }}</strong><span>{{ message.created_at }}</span><div>{{ message.body }}</div></div>
+            <div class="message-item {{ message.author_type }}"><strong>{{ message.author_name }}</strong><span>{{ message.display_time or beijing_time(message.created_at) }}</span><div>{{ message.body }}</div></div>
             {% else %}<div class="empty">暂无顾客留言。</div>{% endfor %}
           </div>
           <form method="post" action="{{ url_for('add_staff_message', task_id=t.id) }}" class="mini-form">
@@ -150,7 +150,7 @@
           <button type="submit" class="danger-btn">处理失败</button>
         </form>
         {% else %}
-          <div class="field-box muted">完成时间：{{ t.completed_at or '-' }}</div>
+          <div class="field-box muted">完成时间：{{ beijing_time(t.completed_at) or '-' }}</div>
         {% endif %}
       </div>
     </div>
@@ -192,7 +192,7 @@ window.addEventListener('taskMessagesChanged', event => {
       messages.forEach(message => {
         const item = document.createElement('div'); item.className = `message-item ${message.author_type}`;
         const name = document.createElement('strong'); name.textContent = message.author_name;
-        const time = document.createElement('span'); time.textContent = message.created_at;
+        const time = document.createElement('span'); time.textContent = message.display_time || message.created_at;
         const body = document.createElement('div'); body.textContent = message.body;
         item.append(name, time, body); history.appendChild(item);
       });

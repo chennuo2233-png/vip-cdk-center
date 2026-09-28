@@ -60,7 +60,7 @@
       {% if conversation_code %}
       <div class="status-box"><div>当前订单：<strong>{{ conversation_code.proxy_code }}</strong></div><div>卡密状态：<strong>{{ code_status_text.get(conversation_code.status, conversation_code.status) }}</strong></div></div>
       <div id="conversationHistory" class="message-history" data-poll-url="{{ url_for('poll_customer_messages', proxy_code=conversation_code.proxy_code) }}" data-latest-message-id="{{ conversation_messages[-1].id if conversation_messages else 0 }}">
-        {% for item in conversation_messages %}<div class="message-item {{ item.author_type }}"><strong>{{ '商家' if item.author_type == 'staff' else '顾客' }}</strong><span>{{ item.created_at }}</span><div>{{ item.body }}</div></div>{% else %}<div class="empty">暂无留言。你可以先向商家留言。</div>{% endfor %}
+        {% for item in conversation_messages %}<div class="message-item {{ item.author_type }}"><strong>{{ '商家' if item.author_type == 'staff' else '顾客' }}</strong><span>{{ item.display_time or beijing_time(item.created_at) }}</span><div>{{ item.body }}</div></div>{% else %}<div class="empty">暂无留言。你可以先向商家留言。</div>{% endfor %}
       </div>
       <form method="post" class="form message-form">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="message"><input type="hidden" name="proxy_code" value="{{ conversation_code.proxy_code }}"><input type="hidden" name="client_token" value="{{ new_message_token() }}">
@@ -105,7 +105,7 @@
         messages.forEach(message => {
           const item = document.createElement('div'); item.className = `message-item ${message.author_type}`;
           const name = document.createElement('strong'); name.textContent = message.author_type === 'staff' ? '商家' : '顾客';
-          const time = document.createElement('span'); time.textContent = message.created_at;
+          const time = document.createElement('span'); time.textContent = message.display_time || message.created_at;
           const body = document.createElement('div'); body.textContent = message.body;
           item.append(name, time, body); conversationHistory.appendChild(item);
         });
