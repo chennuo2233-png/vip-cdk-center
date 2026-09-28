@@ -2,7 +2,7 @@
 <div class="task-list compact-task-list">
   {% for t in tasks %}
   {% set is_hall = task_card_mode|default('work') == 'hall' %}
-  <details class="task-card task-collapse {{ 'hall-card' if is_hall else '' }}"{% if not is_hall and t.has_unread_messages %} data-message-read-url="{{ url_for('mark_staff_messages_read', task_id=t.id) }}" data-csrf-token="{{ csrf_token() }}"{% endif %}>
+  <details class="task-card task-collapse {{ 'hall-card' if is_hall else '' }}" data-code-id="{{ t.code_id }}"{% if not is_hall and t.has_unread_messages %} data-message-read-url="{{ url_for('mark_staff_messages_read', task_id=t.id) }}" data-csrf-token="{{ csrf_token() }}"{% endif %}>
     <summary class="task-summary">
       <div class="task-summary-main">
         <span class="task-id">#{{ t.id }}</span>
@@ -91,13 +91,13 @@
       <div class="actions-col">
         <details class="task-messages">
           <summary>顾客留言（{{ t.messages|length }}）{% if t.has_unread_messages %} <span class="unread-message-dot" title="顾客有新留言"></span>{% endif %}</summary>
-          <div class="message-history">
+          <div class="message-history" data-message-history>
             {% for message in t.messages %}
             <div class="message-item {{ message.author_type }}"><strong>{{ message.author_name }}</strong><span>{{ message.created_at }}</span><div>{{ message.body }}</div></div>
             {% else %}<div class="empty">暂无顾客留言。</div>{% endfor %}
           </div>
           <form method="post" action="{{ url_for('add_staff_message', task_id=t.id) }}" class="mini-form">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="client_token" value="{{ new_message_token() }}">
             <textarea name="message" rows="3" maxlength="1000" placeholder="公开回复顾客（最多 1000 字）" required></textarea>
             <button type="submit">发送回复</button>
           </form>
@@ -172,6 +172,31 @@ document.querySelectorAll('[data-message-read-url]').forEach(card => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ _csrf_token: card.dataset.csrfToken })
     }).then(() => card.querySelectorAll('.unread-message-dot').forEach(dot => dot.remove())).catch(() => {});
+  });
+});
+document.querySelectorAll('form[action*="/messages"]').forEach(form => {
+  form.addEventListener('submit', () => {
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.textContent = '正在发送…'; }
+  });
+});
+window.addEventListener('taskMessagesChanged', event => {
+  const messageGroups = event.detail && event.detail.messages;
+  if (!messageGroups) return;
+  document.querySelectorAll('[data-code-id]').forEach(card => {
+    const messages = messageGroups[card.dataset.codeId];
+    if (!messages) return;
+    const history = card.querySelector('[data-message-history]');
+    if (history) {
+      history.replaceChildren();
+      messages.forEach(message => {
+        const item = document.createElement('div'); item.className = `message-item ${message.author_type}`;
+        const name = document.createElement('strong'); name.textContent = message.author_name;
+        const time = document.createElement('span'); time.textContent = message.created_at;
+        const body = document.createElement('div'); body.textContent = message.body;
+        item.append(name, time, body); history.appendChild(item);
+      });
+    }
   });
 });
 </script>

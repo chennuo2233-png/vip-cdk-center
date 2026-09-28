@@ -93,7 +93,7 @@ if (window.enableTaskMessagePolling) {
         if (!data) return;
         if (latestMessageId !== null && data.latest_message_id > latestMessageId) {
           playNotificationSound();
-          window.setTimeout(() => window.location.reload(), 450);
+          window.dispatchEvent(new CustomEvent('taskMessagesChanged', { detail: data }));
         }
         latestMessageId = data.latest_message_id;
       })

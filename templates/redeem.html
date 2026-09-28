@@ -63,7 +63,7 @@
         {% for item in conversation_messages %}<div class="message-item {{ item.author_type }}"><strong>{{ '商家' if item.author_type == 'staff' else '顾客' }}</strong><span>{{ item.created_at }}</span><div>{{ item.body }}</div></div>{% else %}<div class="empty">暂无留言。你可以先向商家留言。</div>{% endfor %}
       </div>
       <form method="post" class="form message-form">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="message"><input type="hidden" name="proxy_code" value="{{ conversation_code.proxy_code }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="message"><input type="hidden" name="proxy_code" value="{{ conversation_code.proxy_code }}"><input type="hidden" name="client_token" value="{{ new_message_token() }}">
         <textarea name="message" rows="3" maxlength="1000" placeholder="请输入留言（最多 1000 字）" required></textarea><button type="submit">发送留言</button>
       </form>
       {% endif %}
@@ -110,6 +110,11 @@
           item.append(name, time, body); conversationHistory.appendChild(item);
         });
       };
+      const messageForm = document.querySelector('.message-form');
+      if (messageForm) messageForm.addEventListener('submit', () => {
+        const button = messageForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = '正在发送…'; }
+      });
       const pollConversation = () => fetch(conversationHistory.dataset.pollUrl, { credentials: 'same-origin' })
         .then(response => response.ok ? response.json() : null)
         .then(data => {

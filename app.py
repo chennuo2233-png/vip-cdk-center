@@ -210,6 +210,7 @@ def create_tables(conn: sqlite3.Connection) -> None:
             author_type TEXT NOT NULL CHECK(author_type IN ('customer', 'staff')),
             author_name TEXT NOT NULL,
             body TEXT NOT NULL,
+            client_token TEXT UNIQUE,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(code_id) REFERENCES codes(id)
         )
@@ -446,6 +447,8 @@ def migrate_legacy_rows(conn: sqlite3.Connection) -> None:
 def init_db() -> None:
     with get_db() as conn:
         create_tables(conn)
+        add_column_if_missing(conn, "code_messages", "client_token", "TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_code_messages_client_token ON code_messages(client_token) WHERE client_token IS NOT NULL")
         create_initial_owner(conn)
         migrate_legacy_rows(conn)
         conn.commit()
@@ -507,6 +510,7 @@ def inject_globals():
         "task_status_text": TASK_STATUS_TEXT,
         "role_text": ROLE_TEXT,
         "log_action_text": LOG_ACTION_TEXT,
+        "new_message_token": lambda: secrets.token_urlsafe(24),
         "fail_reasons": FAIL_REASONS,
         "step2_login_url": STEP2_LOGIN_URL,
         "step2_copy_url": STEP2_COPY_URL,
@@ -1110,6 +1114,7 @@ def redeem():
         elif action == "message":
             proxy_code = normalize_code(request.form.get("proxy_code", ""))
             body = request.form.get("message", "").strip()
+            client_token = request.form.get("client_token", "").strip() or None
             if not proxy_code or not body:
                 result = {"type": "error", "message": "请输入兑换码和留言内容。"}
             elif len(body) > 1000:
@@ -1120,9 +1125,9 @@ def redeem():
                     if not code_row:
                         result = {"type": "error", "message": "兑换码无效。"}
                     else:
-                        conn.execute(
-                            "INSERT INTO code_messages (code_id, author_type, author_name, body) VALUES (?, 'customer', '顾客', ?)",
-                            (code_row["id"], body),
+                        cur = conn.execute(
+                            "INSERT OR IGNORE INTO code_messages (code_id, author_type, author_name, body, client_token) VALUES (?, 'customer', '顾客', ?, ?)",
+                            (code_row["id"], body, client_token),
                         )
                         mark_code_messages_read(conn, code_row["id"], "customer")
                         conn.commit()
@@ -1131,7 +1136,7 @@ def redeem():
                         conversation_code = code_row
                         code_row = None
                         latest_task = None
-                        result = {"type": "success", "message": "留言已提交，商家会在后台查看并回复。"}
+                        result = {"type": "success", "message": "留言已提交，商家会在后台查看并回复。"} if cur.rowcount else {"type": "info", "message": "这条留言已发送，请勿重复提交。"}
         else:
             proxy_code = normalize_code(request.form.get("proxy_code", ""))
 
@@ -1888,6 +1893,7 @@ def manage_team(owner_view: bool):
 @ops_required
 def add_staff_message(task_id: int):
     body = request.form.get("message", "").strip()
+    client_token = request.form.get("client_token", "").strip() or None
     if not body:
         flash("留言不能为空。", "error")
         return redirect(request.referrer or url_for("ops_tasks"))
@@ -1902,14 +1908,14 @@ def add_staff_message(task_id: int):
             abort(404)
         if not can_operate_task(user, task):
             abort(403)
-        conn.execute(
-            "INSERT INTO code_messages (code_id, author_type, author_name, body) VALUES (?, 'staff', ?, ?)",
-            (task["code_id"], user["display_name"], body),
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO code_messages (code_id, author_type, author_name, body, client_token) VALUES (?, 'staff', ?, ?, ?)",
+            (task["code_id"], user["display_name"], body, client_token),
         )
         mark_code_messages_read(conn, task["code_id"], staff_reader_key(user["id"]))
         write_log(conn, "add_code_message", task_id=task_id, code_id=task["code_id"], note="Public customer message")
         conn.commit()
-    flash("已发送给顾客。", "success")
+    flash("已发送给顾客。" if cur.rowcount else "这条留言已发送，请勿重复提交。", "success")
     return redirect(request.referrer or url_for("ops_tasks"))
 
 
@@ -1934,11 +1940,14 @@ def poll_staff_messages():
     user = current_user()
     with get_db() as conn:
         rows = unread_customer_message_rows(conn, user)
+        code_ids = [row["code_id"] for row in rows]
+        messages = code_messages_for_ids(conn, code_ids)
     latest_id = max((row["latest_message_id"] for row in rows), default=0)
     return jsonify({
         "unread_count": len(rows),
         "latest_message_id": latest_id,
-        "code_ids": [row["code_id"] for row in rows],
+        "code_ids": code_ids,
+        "messages": messages,
     })
 
 
