@@ -1942,6 +1942,32 @@ def poll_staff_messages():
     })
 
 
+@app.route("/ops/tasks/poll")
+@ops_required
+def poll_new_tasks():
+    """Return a lightweight marker for new tasks visible to the current operator."""
+    user = current_user()
+    if user["role"] in ADMIN_ROLES:
+        where = "status IN ('pending', 'assigned', 'processing')"
+        params: list = []
+    elif user["role"] == "lead":
+        where = """
+            status IN ('pending', 'assigned', 'processing')
+            AND (claimed_by = ? OR assigned_to = ? OR (status = 'pending' AND claimed_by IS NULL))
+        """
+        params = [user["id"], user["id"]]
+    else:
+        where = "status IN ('pending', 'assigned', 'processing') AND assigned_to = ?"
+        params = [user["id"]]
+
+    with get_db() as conn:
+        row = conn.execute(
+            f"SELECT COALESCE(MAX(id), 0) AS latest_task_id, COUNT(*) AS active_count FROM redemption_tasks WHERE {where}",
+            params,
+        ).fetchone()
+    return jsonify({"latest_task_id": row["latest_task_id"], "active_count": row["active_count"]})
+
+
 @app.route("/redeem/messages/<proxy_code>/poll")
 def poll_customer_messages(proxy_code: str):
     normalized_code = normalize_code(proxy_code)

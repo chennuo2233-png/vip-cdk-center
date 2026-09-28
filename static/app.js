@@ -52,6 +52,38 @@ function playNotificationSound() {
 
 window.playNotificationSound = playNotificationSound;
 
+function showNewTaskNotice() {
+  const existing = document.getElementById('new-task-notice');
+  if (existing) existing.remove();
+  const notice = document.createElement('button');
+  notice.id = 'new-task-notice';
+  notice.type = 'button';
+  notice.textContent = '有新订单提交，正在更新任务列表…';
+  notice.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:9999;padding:14px 18px;border:0;border-radius:10px;background:#c62828;color:#fff;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer;';
+  notice.addEventListener('click', () => window.location.reload());
+  document.body.appendChild(notice);
+}
+
+if (window.enableTaskPolling) {
+  let latestTaskId = null;
+  const pollNewTasks = () => {
+    fetch('/ops/tasks/poll', { credentials: 'same-origin' })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!data) return;
+        if (latestTaskId !== null && data.latest_task_id > latestTaskId) {
+          playNotificationSound();
+          showNewTaskNotice();
+          window.setTimeout(() => window.location.reload(), 900);
+        }
+        latestTaskId = data.latest_task_id;
+      })
+      .catch(() => {});
+  };
+  pollNewTasks();
+  window.setInterval(pollNewTasks, 10000);
+}
+
 if (window.enableTaskMessagePolling) {
   let latestMessageId = null;
   const pollTaskMessages = () => {
